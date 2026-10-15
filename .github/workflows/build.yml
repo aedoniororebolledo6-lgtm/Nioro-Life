@@ -44,3 +44,41 @@ jobs:
             --title "Nioro Life" \
             --notes "Descarga NioroLife.apk e instálalo en tu Samsung." \
             --latest
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: NioroLife-apk
+
+      - name: Activar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Probar la app en un Android virtual
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disable-animations: true
+          script: bash ci/smoke.sh
+
+      - name: Publicar informe de la prueba
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -f report.txt ] || echo "No se generó informe" > report.txt
+          head -c 100000 report.txt > notes.txt
+          gh release delete diagnostico --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          FILES="report.txt"; [ -s screen.png ] && FILES="$FILES screen.png"
+          gh release create diagnostico $FILES --repo "$GITHUB_REPOSITORY" --title "Diagnostico" --notes-file notes.txt --prerelease
