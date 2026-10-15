@@ -51,8 +51,12 @@ object Scheduler {
         )
 
     private fun setAt(c: Context, at: Long, pi: PendingIntent) {
-        val am = c.getSystemService(AlarmManager::class.java)
-        am.setAlarmClock(AlarmManager.AlarmClockInfo(at, showIntent(c)), pi)
+        try {
+            val am = c.getSystemService(AlarmManager::class.java)
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(at, showIntent(c)), pi)
+        } catch (e: SecurityException) {
+            // Sin permiso de alarmas exactas: no se programa, pero la app no se cierra.
+        }
     }
 
     fun cancelNote(c: Context, id: Long) {
