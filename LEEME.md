@@ -1,23 +1,20 @@
-# Nioro Life — APK por enlace / QR
+# Nioro Life — app Android nativa (Kotlin + Jetpack Compose)
 
-Este proyecto se compila solo en GitHub (gratis) y publica un APK con enlace fijo de descarga.
+App 100 % nativa: sin web, sin WebView. Funciona sin internet.
 
-## Pasos (≈10 minutos, una sola vez)
-1. Crea una cuenta en https://github.com (gratis).
-2. Nuevo repositorio → nombre `nioro-life` → **Public** → Create.
-3. En el repositorio: **Add file → Upload files** y arrastra TODO el contenido de esta carpeta
-   (incluida la carpeta oculta `.github`; si no la ves, en Windows activa "Elementos ocultos",
-   en Mac pulsa Cmd+Shift+.). Pulsa **Commit changes**.
-4. Pestaña **Actions**: verás "Compilar APK" ejecutándose (tarda 5–8 min). Espera el check verde.
-5. Tu enlace permanente de descarga directa es:
-   `https://github.com/TU_USUARIO/nioro-life/releases/latest/download/NioroLife.apk`
-6. Conviértelo en QR (por ejemplo en https://www.qr-code-generator.com o pídemelo y te lo genero)
-   y escanéalo con la cámara del S21: se descarga el APK.
+- **Inicio:** horas, minutos y segundos que te quedan para dormir, con anillo y luna de vidrio.
+- **Reloj:** hora de dormir y de despertar, alarma de despertar, aviso previo y ciclos de sueño.
+- **Notas:** botón flotante "+" para crear las que quieras, con recordatorio opcional (fecha y hora).
+- **Alarmas del sistema (AlarmManager):** suenan con la app cerrada y el teléfono bloqueado, y se reprograman tras reiniciar.
 
-## Instalar en el S21
-Al abrir el APK, Android pide permitir "Instalar apps desconocidas" para Chrome/Archivos: acéptalo.
-Es un APK de prueba (debug), seguro para uso personal. En la primera apertura acepta las notificaciones
-y, si Android lo pide, "Alarmas y recordatorios", para que suene con el teléfono bloqueado.
+## Descargar el APK
+Cada vez que se sube un cambio, GitHub lo compila solo (pestaña **Actions**, 5–10 min) y publica:
 
-## Actualizar la app
-Sube cambios al repositorio y se recompila solo; el mismo enlace/QR siempre baja la última versión.
+`https://github.com/aedoniororebolledo6-lgtm/Nioro-Life/releases/latest/download/NioroLife.apk`
+
+Convierte ese enlace en QR y escanéalo con el S21. Al abrir el APK, Android pide permitir
+"Instalar apps desconocidas". Acepta las notificaciones cuando la app las pida.
+
+## Compilar en Android Studio
+Abre esta carpeta con Android Studio → espera a que Gradle sincronice →
+**Build → Build APK(s)** (o el botón ▶ con el móvil conectado).

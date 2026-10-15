@@ -14,41 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 17
 
-      - name: Instalar dependencias
-        run: npm install
-
-      - name: Crear proyecto Android
-        run: npx cap add android
-
-      - name: Aplicar icono y permisos de alarma
-        run: |
-          rm -rf android/app/src/main/res/mipmap-anydpi-v26
-          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            mkdir -p android/app/src/main/res/mipmap-$d
-            cp android-res/mipmap-$d/*.png android/app/src/main/res/mipmap-$d/
-          done
-          sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>\n    <uses-permission android:name="android.permission.VIBRATE"/>\n    <application#' android/app/src/main/AndroidManifest.xml
-
-      - name: Sincronizar app web con Android
-        run: npx cap sync android
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
 
       - name: Compilar APK
-        working-directory: android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Preparar archivo
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk NioroLife.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk NioroLife.apk
 
       - name: Guardar como artefacto
         uses: actions/upload-artifact@v4
