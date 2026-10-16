@@ -104,7 +104,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           [ -f report.txt ] || echo "No se generó informe" > report.txt
-          head -c 100000 report.txt > notes.txt
+          tr -cd '\11\12\15\40-\176\200-\377' < report.txt | head -c 60000 > notes.txt
+          [ -s notes.txt ] || echo "Informe vacío" > notes.txt
           gh release delete diagnostico --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
-          FILES="report.txt $(ls *.png 2>/dev/null | tr '\n' ' ')"
-          gh release create diagnostico $FILES --repo "$GITHUB_REPOSITORY" --title "Diagnostico" --notes-file notes.txt --prerelease
+          gh release create diagnostico --repo "$GITHUB_REPOSITORY" --title "Diagnostico" --notes-file notes.txt --prerelease || echo "No se pudo crear el release"
+          for f in report.txt *.png; do
+            [ -f "$f" ] && { gh release upload diagnostico "$f" --clobber --repo "$GITHUB_REPOSITORY" || echo "No se pudo subir $f"; }
+          done
+          exit 0
