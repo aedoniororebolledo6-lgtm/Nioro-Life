@@ -3,17 +3,17 @@
 set +e
 P=com.nioro.life
 adb install -r NioroLife.apk > install.txt 2>&1
-adb shell pm grant $P android.permission.POST_NOTIFICATIONS
+timeout 30 adb shell pm grant $P android.permission.POST_NOTIFICATIONS
 adb logcat -c
-adb shell am start -W -n $P/.MainActivity > start.txt 2>&1
+timeout 60 adb shell am start -W -n $P/.MainActivity > start.txt 2>&1
 sleep 10
 
-ui()   { adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml > /dev/null 2>&1; }
-shot() { adb exec-out screencap -p > "$1.png"; }
-tap()  { ui; XY=$(python3 ci/tap.py "$1") && { adb shell input tap $XY; echo "  tap '$1' ($XY)"; } || echo "  NO ENCONTRADO: '$1'"; sleep "${2:-2}"; }
-type_in() { tap "$1" 1; adb shell input text "$2"; sleep 1; }
+ui()   { rm -f ui.xml; timeout 40 adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1; timeout 20 adb pull /sdcard/ui.xml ui.xml > /dev/null 2>&1; [ -f ui.xml ] || echo "<hierarchy/>" > ui.xml; }
+shot() { timeout 30 adb exec-out screencap -p > "$1.png"; }
+tap()  { ui; XY=$(python3 ci/tap.py "$1") && { timeout 20 adb shell input tap $XY; echo "  tap '$1' ($XY)"; } || echo "  NO ENCONTRADO: '$1'"; sleep "${2:-2}"; }
+type_in() { tap "$1" 1; timeout 20 adb shell input text "$2"; sleep 1; }
 look() { ui; echo "[$1] $(python3 ci/texts.py)"; shot "$1"; }
-back() { adb shell input keyevent 4; sleep 2; }
+back() { timeout 20 adb shell input keyevent 4; sleep 2; }
 
 {
   echo "== PASOS"
@@ -40,7 +40,7 @@ back() { adb shell input keyevent 4; sleep 2; }
   tap "=Finanzas"; look 14_finanzas_dia; back
 } > steps.txt 2>&1
 
-adb logcat -d > full.log 2>&1
+timeout 60 adb logcat -d > full.log 2>&1
 {
   echo "== instalacion"; cat install.txt
   echo "== arranque"; cat start.txt
