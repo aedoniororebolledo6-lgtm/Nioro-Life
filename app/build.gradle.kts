@@ -12,13 +12,28 @@ android {
         applicationId = "com.nioro.life"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.0"
+        // GitHub numera cada compilación; la app compara este número para saber si hay una versión nueva.
+        versionCode = (System.getenv("BUILD_NUMBER") ?: "3").toInt()
+        versionName = "2.1"
+    }
+
+    // Firma fija: sin ella, Android no deja actualizar la app encima de la anterior.
+    signingConfigs {
+        create("nioro") {
+            storeFile = rootProject.file("nioro.keystore")
+            storePassword = "nioro-life"
+            keyAlias = "nioro"
+            keyPassword = "nioro-life"
+        }
     }
 
     buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("nioro")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("nioro")
         }
     }
 

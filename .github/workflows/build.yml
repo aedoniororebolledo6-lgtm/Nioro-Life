@@ -24,7 +24,28 @@ jobs:
           gradle-version: 8.10.2
 
       - name: Compilar APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        id: gradle
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Publicar errores de compilación
+        if: failure() && steps.gradle.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          grep -E "^e: |error:|What went wrong|FAILED|Execution failed" -A4 build.log | head -c 100000 > err.txt || true
+          [ -s err.txt ] || tail -c 20000 build.log > err.txt
+          gh release delete build-error --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create build-error --repo "$GITHUB_REPOSITORY" --title "Error de compilacion" --notes-file err.txt --prerelease
+
+      - name: Limpiar aviso de error anterior
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete build-error --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
 
       - name: Preparar archivo
         run: cp app/build/outputs/apk/debug/app-debug.apk NioroLife.apk
@@ -42,7 +63,7 @@ jobs:
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest NioroLife.apk \
             --title "Nioro Life" \
-            --notes "Descarga NioroLife.apk e instálalo en tu Samsung." \
+            --notes "build:${{ github.run_number }} · Descarga NioroLife.apk e instálalo en tu Samsung." \
             --latest
 
   smoke:
@@ -80,5 +101,5 @@ jobs:
           [ -f report.txt ] || echo "No se generó informe" > report.txt
           head -c 100000 report.txt > notes.txt
           gh release delete diagnostico --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
-          FILES="report.txt"; [ -s screen.png ] && FILES="$FILES screen.png"
+          FILES="report.txt $(ls *.png 2>/dev/null | tr '\n' ' ')"
           gh release create diagnostico $FILES --repo "$GITHUB_REPOSITORY" --title "Diagnostico" --notes-file notes.txt --prerelease

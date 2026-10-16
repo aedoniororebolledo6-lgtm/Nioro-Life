@@ -32,7 +32,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -67,7 +67,15 @@ import java.util.Locale
 // ---------------------------------------------------------------- INICIO
 
 @Composable
-fun HomeScreen(settings: Settings, notes: List<Note>, now: Long, onGo: (String) -> Unit) {
+fun HomeScreen(
+    settings: Settings,
+    notes: List<Note>,
+    tx: List<Tx>,
+    now: Long,
+    onGo: (String) -> Unit,
+    onMenu: () -> Unit
+) {
+    val p = LocalPalette.current
     val st = computeSleep(settings, now)
     val totalSec = maxOf(0L, (st.targetMs - now) / 1000)
     val h = totalSec / 3600
@@ -84,62 +92,55 @@ fun HomeScreen(settings: Settings, notes: List<Note>, now: Long, onGo: (String) 
     val nextRem = notes
         .filter { !it.done && it.remindAt != null && (it.remindAt ?: 0L) > now }
         .minByOrNull { it.remindAt ?: Long.MAX_VALUE }
+    val sum = monthSummary(tx, now)
 
     Column(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(Modifier.padding(start = 6.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(R.mipmap.ic_launcher),
-                contentDescription = null,
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
+                contentDescription = "Menú",
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .border(1.dp, p.borderTop, RoundedCornerShape(13.dp))
+                    .clickable(onClick = onMenu)
             )
             Spacer(Modifier.width(10.dp))
-            Column {
+            Column(Modifier.weight(1f)) {
                 GlowText("Nioro Life", 22.sp)
-                Text(greet, color = Muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                Text(greet, color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Glass(Modifier.size(44.dp), radius = 15.dp, onClick = onMenu) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { MenuIcon() }
             }
         }
 
         Glass(Modifier.fillMaxWidth(), onClick = { onGo("clock") }) {
             Column(
-                Modifier.fillMaxWidth().padding(vertical = 22.dp, horizontal = 18.dp),
+                Modifier.fillMaxWidth().padding(vertical = 20.dp, horizontal = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     if (st.sleeping) "FALTAN PARA DESPERTAR" else "TE QUEDAN PARA DORMIR",
-                    color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp
+                    color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp
                 )
-                Box(Modifier.padding(top = 12.dp).size(236.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.padding(top = 8.dp).size(224.dp), contentAlignment = Alignment.Center) {
                     Canvas(Modifier.fillMaxSize().padding(8.dp)) {
                         val stroke = 9.dp.toPx()
                         val tl = Offset(stroke / 2, stroke / 2)
                         val sz = Size(size.width - stroke, size.height - stroke)
-                        // luna
-                        val ms = size.width * 0.66f / 100f
-                        val ox = (size.width - 100 * ms) / 2
-                        val oy = (size.height - 100 * ms) / 2
-                        val mp = moonPath(ms, ox, oy)
-                        drawPath(mp, Cream.copy(alpha = 0.10f), style = Stroke(width = 28f))
-                        drawPath(mp, Cream.copy(alpha = 0.14f), style = Stroke(width = 14f))
-                        drawPath(
-                            mp,
-                            Brush.radialGradient(
-                                listOf(Color(0xFFEEF2FB), Color(0xFFD9E2F3), Color(0xFFF4EFC6)),
-                                center = Offset(size.width * 0.4f, size.height * 0.35f),
-                                radius = size.width * 0.6f
-                            ),
-                            alpha = 0.45f
-                        )
-                        // anillo
-                        drawArc(Color(0x1FFFFFFF), 0f, 360f, false, tl, sz, style = Stroke(stroke))
+                        drawMoon(p, 0.66f)
+                        drawArc(p.track, 0f, 360f, false, tl, sz, style = Stroke(stroke))
                         if (frac > 0f) {
-                            drawArc(Cream.copy(alpha = 0.22f), -90f, 360f * frac, false, tl, sz, style = Stroke(stroke + 12f, cap = StrokeCap.Round))
-                            drawArc(Color(0xFFFFE28A), -90f, 360f * frac, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
+                            drawArc(p.accent.copy(alpha = 0.22f), -90f, 360f * frac, false, tl, sz, style = Stroke(stroke + 12f, cap = StrokeCap.Round))
+                            drawArc(p.accent, -90f, 360f * frac, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
                         }
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -150,16 +151,16 @@ fun HomeScreen(settings: Settings, notes: List<Note>, now: Long, onGo: (String) 
                             withStyle(SpanStyle(fontSize = 20.sp)) { append("m") }
                         }
                         Text(
-                            big, color = Cream, fontSize = 52.sp, fontWeight = FontWeight.ExtraBold,
-                            style = TextStyle(shadow = androidx.compose.ui.graphics.Shadow(CreamGlow, Offset.Zero, 28f))
+                            big, color = p.title, fontSize = 50.sp, fontWeight = FontWeight.ExtraBold,
+                            style = TextStyle(shadow = Shadow(p.glow, Offset.Zero, 28f))
                         )
-                        Text("%02d s".format(s), color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text("%02d s".format(s), color = p.muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Te duermes a las ${fmtTime(settings.bedMin)} · despiertas a las ${fmtTime(settings.wakeMin)}",
-                    color = Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center
+                    color = p.muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center
                 )
             }
         }
@@ -174,21 +175,39 @@ fun HomeScreen(settings: Settings, notes: List<Note>, now: Long, onGo: (String) 
             ) { onGo("notes") }
         }
 
+        Spacer(Modifier.height(14.dp))
+        Glass(Modifier.fillMaxWidth(), onClick = { onGo("finance") }) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconBadge { CoinIcon() }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    GlowText("Finanzas", 19.sp)
+                    Text(
+                        "Saldo del mes: ${fmtMoney(sum.balance)}",
+                        color = if (sum.balance < 0) p.expense else p.muted,
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
+                    )
+                }
+                ForwardIcon()
+            }
+        }
+
         if (nextRem != null) {
             Spacer(Modifier.height(14.dp))
             Glass(Modifier.fillMaxWidth(), radius = 24.dp) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(Cream))
+                    Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(p.accent))
                     Spacer(Modifier.width(12.dp))
                     Column {
-                        Text("Próximo recordatorio", color = Muted, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                        Text("Próximo recordatorio", color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                         val t = if (nextRem.title.isBlank()) nextRem.text.take(40) else nextRem.title
-                        Text(t, color = Cream, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(fmtDate(nextRem.remindAt ?: 0L), color = Muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text(t, color = p.title, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(fmtDate(nextRem.remindAt ?: 0L), color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -200,6 +219,7 @@ private fun Tile(
     icon: @Composable () -> Unit,
     onClick: () -> Unit
 ) {
+    val p = LocalPalette.current
     Glass(modifier.height(150.dp), onClick = onClick) {
         Column(
             Modifier.fillMaxSize().padding(16.dp),
@@ -208,7 +228,7 @@ private fun Tile(
             IconBadge { icon() }
             Column {
                 GlowText(title, 19.sp)
-                Text(sub, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(sub, color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
     }
@@ -217,18 +237,8 @@ private fun Tile(
 // ---------------------------------------------------------------- RELOJ
 
 @Composable
-private fun TopBar(title: String, onBack: () -> Unit) {
-    Row(Modifier.padding(bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Glass(Modifier.size(46.dp), radius = 16.dp, onClick = onBack) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { BackIcon() }
-        }
-        Spacer(Modifier.width(12.dp))
-        GlowText(title, 25.sp)
-    }
-}
-
-@Composable
 fun ClockScreen(settings: Settings, onChange: (Settings) -> Unit, onBack: () -> Unit) {
+    val p = LocalPalette.current
     val now = System.currentTimeMillis()
     val dur = sleepDurMin(settings)
     Column(
@@ -247,7 +257,7 @@ fun ClockScreen(settings: Settings, onChange: (Settings) -> Unit, onBack: () -> 
                     }
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Duermes ", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text("Duermes ", color = p.muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         GlowText(fmtDur(dur), 22.sp)
                     }
                     Spacer(Modifier.height(8.dp))
@@ -255,7 +265,7 @@ fun ClockScreen(settings: Settings, onChange: (Settings) -> Unit, onBack: () -> 
                         if (dur < 360) "Dormirás menos de 6 h: intenta acercarte a 7–9 h."
                         else if (dur <= 540) "Buena duración de sueño para un adulto."
                         else "Es un sueño largo, ajusta si lo necesitas.",
-                        color = Muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold
+                        color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -289,19 +299,19 @@ fun ClockScreen(settings: Settings, onChange: (Settings) -> Unit, onBack: () -> 
                             val c = Calendar.getInstance().apply { timeInMillis = now + (15 + 90 * n) * 60_000L }
                             val t = fmtTime(c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE))
                             Column(
-                                Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(Color(0x0FFFFFFF))
-                                    .border(1.dp, Color(0x24FFFFFF), RoundedCornerShape(20.dp)).padding(vertical = 12.dp),
+                                Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(p.chipBg)
+                                    .border(1.dp, p.chipBorder, RoundedCornerShape(20.dp)).padding(vertical = 12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 GlowText(t, 22.sp)
-                                Text("$n ciclos", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("$n ciclos", color = p.muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                     Spacer(Modifier.height(10.dp))
                     Text(
                         "Ciclos de 90 min + 15 min para dormirte. Despertar al final de un ciclo ayuda a sentirte más descansado.",
-                        color = Muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold
+                        color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -312,6 +322,7 @@ fun ClockScreen(settings: Settings, onChange: (Settings) -> Unit, onBack: () -> 
 
 @Composable
 private fun TimeBox(label: String, minutes: Int, modifier: Modifier, onPick: (Int) -> Unit) {
+    val p = LocalPalette.current
     val ctx = LocalContext.current
     Glass(
         modifier, radius = 22.dp,
@@ -320,7 +331,7 @@ private fun TimeBox(label: String, minutes: Int, modifier: Modifier, onPick: (In
         }
     ) {
         Column(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label.uppercase(), color = Muted, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+            Text(label.uppercase(), color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
             Spacer(Modifier.height(6.dp))
             GlowText(fmtTime(minutes), 34.sp)
         }
@@ -328,37 +339,24 @@ private fun TimeBox(label: String, minutes: Int, modifier: Modifier, onPick: (In
 }
 
 @Composable
-private fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
+fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    val p = LocalPalette.current
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text(sub, color = Muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, color = p.body, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(sub, color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
         }
         Switch(
             checked = on, onCheckedChange = onChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0x99FFECA0),
+                checkedTrackColor = p.switchOn,
                 checkedBorderColor = Color.Transparent,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color(0x24FFFFFF),
-                uncheckedBorderColor = Color(0x38FFFFFF)
+                uncheckedTrackColor = p.chipBg,
+                uncheckedBorderColor = p.chipBorder
             )
         )
-    }
-}
-
-@Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        Modifier.clip(shape)
-            .background(if (selected) Color(0x47FFECA0) else Color(0x14FFFFFF))
-            .border(1.dp, Color(0x38FFFFFF), shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 9.dp)
-    ) {
-        Text(label, color = Cream, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -371,6 +369,7 @@ fun NotesScreen(
     onDelete: (Note) -> Unit,
     onBack: () -> Unit
 ) {
+    val p = LocalPalette.current
     var editing by remember { mutableStateOf<Note?>(null) }
     var creating by remember { mutableStateOf(false) }
     val sorted = notes.sortedByDescending { it.id }
@@ -390,7 +389,7 @@ fun NotesScreen(
                     Spacer(Modifier.height(12.dp))
                     Text(
                         "Aún no tienes notas.\nToca + para crear la primera.",
-                        color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
+                        color = p.muted, fontSize = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
                     )
                 }
             } else {
@@ -405,7 +404,7 @@ fun NotesScreen(
                                 if (n.text.isNotBlank()) {
                                     Spacer(Modifier.height(6.dp))
                                     Text(
-                                        n.text, color = Color(0xE6F4F6FF), fontSize = 14.5.sp,
+                                        n.text, color = p.body, fontSize = 14.5.sp,
                                         fontWeight = FontWeight.SemiBold, maxLines = 6, overflow = TextOverflow.Ellipsis
                                     )
                                 }
@@ -417,13 +416,13 @@ fun NotesScreen(
                                     val r = n.remindAt
                                     Text(
                                         if (r != null) "🔔 ${fmtDate(r)}" else "",
-                                        color = if (n.done) Muted else Cream,
+                                        color = if (n.done) p.muted else p.title,
                                         fontSize = 12.5.sp, fontWeight = FontWeight.Bold
                                     )
                                     Box(
                                         Modifier.size(34.dp).clip(RoundedCornerShape(12.dp))
-                                            .background(Color(0x12FFFFFF))
-                                            .border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(12.dp))
+                                            .background(p.chipBg)
+                                            .border(1.dp, p.chipBorder, RoundedCornerShape(12.dp))
                                             .clickable { onDelete(n) },
                                         contentAlignment = Alignment.Center
                                     ) { CloseIcon() }
@@ -438,8 +437,8 @@ fun NotesScreen(
         Box(
             Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(20.dp)
                 .size(68.dp).clip(RoundedCornerShape(26.dp))
-                .background(Brush.linearGradient(listOf(Color(0x6BFFF3BE), Color(0x29FFF3BE))))
-                .border(1.dp, Color(0x59FFFFFF), RoundedCornerShape(26.dp))
+                .background(Brush.linearGradient(p.fab))
+                .border(1.dp, p.borderTop, RoundedCornerShape(26.dp))
                 .clickable { creating = true },
             contentAlignment = Alignment.Center
         ) { PlusIcon() }
@@ -470,29 +469,18 @@ fun NotesScreen(
 
 @Composable
 private fun NoteDialog(initial: Note?, onDismiss: () -> Unit, onSave: (String, String, Long?) -> Unit) {
+    val p = LocalPalette.current
     val ctx = LocalContext.current
     var title by remember { mutableStateOf(initial?.title ?: "") }
     var text by remember { mutableStateOf(initial?.text ?: "") }
     var remind by remember { mutableStateOf(initial?.remindAt) }
     val shape = RoundedCornerShape(30.dp)
-    val fieldColors = TextFieldDefaults.colors(
-        focusedContainerColor = Color.Transparent,
-        unfocusedContainerColor = Color.Transparent,
-        disabledContainerColor = Color.Transparent,
-        focusedIndicatorColor = Color(0x66FFF3C4),
-        unfocusedIndicatorColor = Color(0x24FFFFFF),
-        cursorColor = Cream,
-        focusedTextColor = Color.White,
-        unfocusedTextColor = Color.White,
-        focusedPlaceholderColor = Color(0x66E2EAFF),
-        unfocusedPlaceholderColor = Color(0x66E2EAFF)
-    )
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             Modifier.fillMaxWidth().padding(16.dp).clip(shape)
-                .background(Brush.verticalGradient(listOf(Color(0xF2183282), Color(0xF20B2864))))
-                .border(1.dp, Color(0x40FFFFFF), shape)
+                .background(Brush.verticalGradient(p.dialog))
+                .border(1.dp, p.dialogBorder, shape)
                 .padding(18.dp)
         ) {
             TextField(
@@ -500,19 +488,19 @@ private fun NoteDialog(initial: Note?, onDismiss: () -> Unit, onSave: (String, S
                 placeholder = { Text("Título (opcional)") },
                 singleLine = true,
                 textStyle = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.ExtraBold),
-                colors = fieldColors, modifier = Modifier.fillMaxWidth()
+                colors = fieldColors(), modifier = Modifier.fillMaxWidth()
             )
             TextField(
                 value = text, onValueChange = { text = it },
                 placeholder = { Text("Escribe aquí lo que quieras recordar…") },
                 minLines = 4, maxLines = 8,
                 textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-                colors = fieldColors, modifier = Modifier.fillMaxWidth()
+                colors = fieldColors(), modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(12.dp))
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0x12FFFFFF))
-                    .border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(20.dp))
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.chipBg)
+                    .border(1.dp, p.chipBorder, RoundedCornerShape(20.dp))
                     .clickable { pickDateTime(ctx, remind) { remind = it } }
                     .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -522,7 +510,7 @@ private fun NoteDialog(initial: Note?, onDismiss: () -> Unit, onSave: (String, S
                 val r = remind
                 Text(
                     if (r != null) fmtDate(r) else "Añadir recordatorio (fecha y hora)",
-                    color = if (r != null) Cream else Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                    color = if (r != null) p.title else p.muted, fontSize = 15.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
                 if (r != null) {
@@ -544,27 +532,13 @@ private fun NoteDialog(initial: Note?, onDismiss: () -> Unit, onSave: (String, S
     }
 }
 
-@Composable
-private fun DialogButton(label: String, main: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
-    Box(
-        modifier.height(52.dp).clip(shape)
-            .background(
-                if (main) Brush.verticalGradient(listOf(Color(0xFFFFF7D2), Color(0xFFFFE99A)))
-                else Brush.verticalGradient(listOf(Color(0x17FFFFFF), Color(0x17FFFFFF)))
-            )
-            .border(1.dp, if (main) Color(0xFFFFF3C4) else Color(0x38FFFFFF), shape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(label, color = if (main) Color(0xFF10215F) else Cream, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
-    }
-}
-
 // ---------------------------------------------------------------- utilidades
 
 fun fmtDate(ms: Long): String =
     SimpleDateFormat("EEE d MMM · HH:mm", Locale("es", "CL")).format(ms)
+
+fun fmtDay(ms: Long): String =
+    SimpleDateFormat("EEE d MMM yyyy", Locale("es", "CL")).format(ms)
 
 fun pickDateTime(ctx: Context, current: Long?, onPicked: (Long) -> Unit) {
     val c = Calendar.getInstance()
@@ -582,6 +556,21 @@ fun pickDateTime(ctx: Context, current: Long?, onPicked: (Long) -> Unit) {
                 },
                 c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true
             ).show()
+        },
+        c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
+    ).show()
+}
+
+fun pickDate(ctx: Context, current: Long, onPicked: (Long) -> Unit) {
+    val c = Calendar.getInstance()
+    c.timeInMillis = current
+    DatePickerDialog(
+        ctx,
+        { _, y, mo, d ->
+            val r = Calendar.getInstance()
+            r.set(y, mo, d, 12, 0, 0)
+            r.set(Calendar.MILLISECOND, 0)
+            onPicked(r.timeInMillis)
         },
         c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
     ).show()

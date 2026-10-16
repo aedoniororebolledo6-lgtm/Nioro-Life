@@ -14,10 +14,17 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -32,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -41,17 +49,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val Navy0 = Color(0xFF0A1450)
-val Navy1 = Color(0xFF0B2468)
-val Navy2 = Color(0xFF0B3A7C)
-val Navy3 = Color(0xFF0B5088)
-val Cream = Color(0xFFFFF3C4)
-val CreamGlow = Color(0x99FFF3BE)
-val Muted = Color(0xB0E2EAFF)
-
-val AppBackground: Brush
-    get() = Brush.verticalGradient(listOf(Navy0, Navy1, Navy2, Navy3))
-
 /** Tarjeta de vidrio líquido: degradado translúcido, borde con brillo y luz superior. */
 @Composable
 fun Glass(
@@ -60,6 +57,7 @@ fun Glass(
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val p = LocalPalette.current
     val shape = RoundedCornerShape(radius)
     val src = remember { MutableInteractionSource() }
     val pressed by src.collectIsPressedAsState()
@@ -70,27 +68,19 @@ fun Glass(
                 scaleX = sc
                 scaleY = sc
             }
-            .shadow(14.dp, shape, clip = false, ambientColor = Color(0xFF020828), spotColor = Color(0xFF020828))
+            .shadow(14.dp, shape, clip = false, ambientColor = p.shadow, spotColor = p.shadow)
             .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    listOf(Color(0x30FFFFFF), Color(0x0DFFFFFF), Color(0x1CFFFFFF))
-                )
-            )
+            .background(Brush.linearGradient(p.glass))
             .drawBehind {
                 drawRect(
                     Brush.radialGradient(
-                        listOf(Color(0x40FFFFFF), Color.Transparent),
+                        listOf(p.glassHighlight, Color.Transparent),
                         center = Offset(size.width * 0.25f, 0f),
                         radius = size.width * 0.9f
                     )
                 )
             }
-            .border(
-                1.dp,
-                Brush.verticalGradient(listOf(Color(0x70FFFFFF), Color(0x22FFFFFF))),
-                shape
-            )
+            .border(1.dp, Brush.verticalGradient(listOf(p.borderTop, p.borderBottom)), shape)
             .then(
                 if (onClick != null)
                     Modifier.clickable(interactionSource = src, indication = null, onClick = onClick)
@@ -106,36 +96,94 @@ fun GlowText(
     size: TextUnit,
     modifier: Modifier = Modifier,
     weight: FontWeight = FontWeight.ExtraBold,
-    color: Color = Cream,
+    color: Color = Color.Unspecified,
     glow: Boolean = true
 ) {
+    val p = LocalPalette.current
     Text(
         text = text,
         modifier = modifier,
-        color = color,
+        color = if (color == Color.Unspecified) p.title else color,
         fontSize = size,
         fontWeight = weight,
-        style = TextStyle(shadow = if (glow) Shadow(CreamGlow, Offset.Zero, 24f) else null)
+        style = TextStyle(shadow = if (glow) Shadow(p.glow, Offset.Zero, 24f) else null)
     )
 }
 
 @Composable
 fun IconBadge(content: @Composable BoxScope.() -> Unit) {
+    val p = LocalPalette.current
     val shape = RoundedCornerShape(18.dp)
     Box(
         Modifier
             .size(54.dp)
             .clip(shape)
-            .background(
-                Brush.radialGradient(
-                    listOf(Color(0x59FFFFFF), Color(0x24FFF3C4), Color(0x0DFFFFFF)),
-                    center = Offset(40f, 30f),
-                    radius = 160f
-                )
-            )
-            .border(1.dp, Color(0x47FFFFFF), shape),
+            .background(Brush.radialGradient(p.badge, center = Offset(40f, 30f), radius = 160f))
+            .border(1.dp, p.badgeBorder, shape),
         contentAlignment = Alignment.Center,
         content = content
+    )
+}
+
+@Composable
+fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        Modifier.clip(shape)
+            .background(if (selected) p.accentSoft else p.chipBg)
+            .border(1.dp, if (selected) p.accent else p.chipBorder, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 9.dp)
+    ) {
+        Text(label, color = p.title, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun DialogButton(label: String, main: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    val shape = RoundedCornerShape(20.dp)
+    Box(
+        modifier.height(52.dp).clip(shape)
+            .background(
+                if (main) Brush.verticalGradient(p.btnMain)
+                else Brush.verticalGradient(listOf(p.chipBg, p.chipBg))
+            )
+            .border(1.dp, if (main) p.btnMainBorder else p.chipBorder, shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = if (main) p.onBtnMain else p.title, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+@Composable
+fun TopBar(title: String, onBack: () -> Unit) {
+    val p = LocalPalette.current
+    Row(Modifier.padding(bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Glass(Modifier.size(46.dp), radius = 16.dp, onClick = onBack) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { BackIcon(color = p.title) }
+        }
+        Spacer(Modifier.width(12.dp))
+        GlowText(title, 25.sp)
+    }
+}
+
+@Composable
+fun fieldColors(): TextFieldColors {
+    val p = LocalPalette.current
+    return TextFieldDefaults.colors(
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent,
+        disabledContainerColor = Color.Transparent,
+        focusedIndicatorColor = p.fieldLine,
+        unfocusedIndicatorColor = p.fieldLineOff,
+        cursorColor = p.accent,
+        focusedTextColor = p.fieldText,
+        unfocusedTextColor = p.fieldText,
+        focusedPlaceholderColor = p.placeholder,
+        unfocusedPlaceholderColor = p.placeholder
     )
 }
 
@@ -150,8 +198,30 @@ fun moonPath(s: Float, ox: Float, oy: Float): Path = Path().apply {
     close()
 }
 
+/** Dibuja la luna centrada en el área disponible, ocupando `fraction` del ancho. */
+fun DrawScope.drawMoon(p: Palette, fraction: Float) {
+    val ms = size.width * fraction / 100f
+    val ox = (size.width - 100 * ms) / 2
+    val oy = (size.height - 100 * ms) / 2
+    val mp = moonPath(ms, ox, oy)
+    val glowColor = if (p.light) p.accent else p.title
+    drawPath(mp, glowColor.copy(alpha = 0.10f), style = Stroke(width = 28f))
+    drawPath(mp, glowColor.copy(alpha = 0.14f), style = Stroke(width = 14f))
+    drawPath(
+        mp,
+        Brush.radialGradient(
+            p.moon,
+            center = Offset(size.width * 0.4f, size.height * 0.35f),
+            radius = size.width * 0.6f
+        ),
+        alpha = p.moonAlpha
+    )
+    if (p.moonEdge.alpha > 0f) drawPath(mp, p.moonEdge, style = Stroke(width = 3f))
+}
+
 @Composable
 fun Stars() {
+    val p = LocalPalette.current
     val stars = remember {
         val r = java.util.Random(7)
         List(42) { Triple(r.nextFloat(), r.nextFloat() * 0.85f, r.nextFloat() * 1.6f + 0.8f) }
@@ -165,13 +235,14 @@ fun Stars() {
     )
     Canvas(Modifier.fillMaxSize()) {
         for ((x, y, r) in stars) {
-            drawCircle(Color.White.copy(alpha = a * (0.4f + r / 3f)), r.dp.toPx(), Offset(x * size.width, y * size.height))
+            val alpha = (a * (0.4f + r / 3f)).coerceAtMost(1f)
+            drawCircle(p.star.copy(alpha = alpha), r.dp.toPx(), Offset(x * size.width, y * size.height))
         }
     }
 }
 
 @Composable
-fun ClockIcon(dp: Dp = 30.dp, color: Color = Cream) {
+fun ClockIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {
     Canvas(Modifier.size(dp)) {
         val w = size.minDimension
         val sw = w * 0.075f
@@ -185,7 +256,7 @@ fun ClockIcon(dp: Dp = 30.dp, color: Color = Cream) {
 }
 
 @Composable
-fun NoteIcon(dp: Dp = 30.dp, color: Color = Cream) {
+fun NoteIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {
     Canvas(Modifier.size(dp)) {
         val w = size.minDimension
         val sw = w * 0.075f
@@ -205,8 +276,38 @@ fun NoteIcon(dp: Dp = 30.dp, color: Color = Cream) {
     }
 }
 
+/** Moneda con símbolo de pesos, dibujada con trazos. */
 @Composable
-fun BackIcon(dp: Dp = 22.dp, color: Color = Cream) {
+fun CoinIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {
+    Canvas(Modifier.size(dp)) {
+        val w = size.minDimension
+        val sw = w * 0.075f
+        val c = Offset(w / 2, w / 2)
+        drawCircle(color, radius = w * 0.4f, center = c, style = Stroke(sw, cap = StrokeCap.Round))
+        val s = Path().apply {
+            moveTo(w * 0.6f, w * 0.38f)
+            cubicTo(w * 0.58f, w * 0.3f, w * 0.4f, w * 0.3f, w * 0.4f, w * 0.42f)
+            cubicTo(w * 0.4f, w * 0.52f, w * 0.6f, w * 0.48f, w * 0.6f, w * 0.6f)
+            cubicTo(w * 0.6f, w * 0.72f, w * 0.42f, w * 0.7f, w * 0.4f, w * 0.62f)
+        }
+        drawPath(s, color, style = Stroke(sw, cap = StrokeCap.Round))
+        drawLine(color, Offset(w * 0.5f, w * 0.23f), Offset(w * 0.5f, w * 0.77f), sw * 0.8f, StrokeCap.Round)
+    }
+}
+
+@Composable
+fun MenuIcon(dp: Dp = 22.dp, color: Color = LocalPalette.current.title) {
+    Canvas(Modifier.size(dp)) {
+        val w = size.minDimension
+        val sw = w * 0.1f
+        drawLine(color, Offset(w * 0.15f, w * 0.3f), Offset(w * 0.85f, w * 0.3f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.15f, w * 0.5f), Offset(w * 0.85f, w * 0.5f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.15f, w * 0.7f), Offset(w * 0.6f, w * 0.7f), sw, StrokeCap.Round)
+    }
+}
+
+@Composable
+fun BackIcon(dp: Dp = 22.dp, color: Color = LocalPalette.current.title) {
     Canvas(Modifier.size(dp)) {
         val w = size.minDimension
         val sw = w * 0.1f
@@ -216,7 +317,17 @@ fun BackIcon(dp: Dp = 22.dp, color: Color = Cream) {
 }
 
 @Composable
-fun PlusIcon(dp: Dp = 32.dp, color: Color = Color(0xFFFFFBE6)) {
+fun ForwardIcon(dp: Dp = 22.dp, color: Color = LocalPalette.current.title) {
+    Canvas(Modifier.size(dp)) {
+        val w = size.minDimension
+        val sw = w * 0.1f
+        drawLine(color, Offset(w * 0.35f, w * 0.18f), Offset(w * 0.7f, w * 0.5f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.7f, w * 0.5f), Offset(w * 0.35f, w * 0.82f), sw, StrokeCap.Round)
+    }
+}
+
+@Composable
+fun PlusIcon(dp: Dp = 32.dp, color: Color = LocalPalette.current.fabIcon) {
     Canvas(Modifier.size(dp)) {
         val w = size.minDimension
         val sw = w * 0.1f
@@ -226,7 +337,7 @@ fun PlusIcon(dp: Dp = 32.dp, color: Color = Color(0xFFFFFBE6)) {
 }
 
 @Composable
-fun CloseIcon(dp: Dp = 14.dp, color: Color = Muted) {
+fun CloseIcon(dp: Dp = 14.dp, color: Color = LocalPalette.current.muted) {
     Canvas(Modifier.size(dp)) {
         val w = size.minDimension
         val sw = w * 0.14f
