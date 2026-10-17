@@ -35,7 +35,9 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   tap "=Día"; look 09_menu_dia
   tap "Buscar actualiz" 9; look 10_actualizacion
   back; look 11_home_dia
-  tap "=Reloj"; look 12_reloj_dia; back
+  tap "=Reloj"; look 12_reloj_dia
+  tap "=Sábado" 1; tap "=Domingo" 1; look 12b_reloj_sin_finde
+  tap "=Todos" 1; look 12c_reloj_todos; back
   tap "=Notas"; look 13_notas_dia; back
   tap "=Finanzas"; look 14_finanzas_dia; back
 } > steps.txt 2>&1

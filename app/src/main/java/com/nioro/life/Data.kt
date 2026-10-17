@@ -7,6 +7,8 @@ import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Locale
 
+const val ALL_DAYS = 127
+
 data class Note(
     val id: Long,
     val title: String,
@@ -21,7 +23,9 @@ data class Settings(
     val alarmOn: Boolean = true,
     val bedNotify: Boolean = false,
     val leadMin: Int = 30,
-    val light: Boolean = false
+    val light: Boolean = false,
+    /** Días en que suena la alarma (bits: lunes = 1 … domingo = 64). */
+    val wakeDays: Int = ALL_DAYS
 )
 
 /** kind: 0 = ingreso, 1 = gasto, 2 = deuda. */
@@ -48,7 +52,8 @@ object Store {
             alarmOn = p.getBoolean("alarm", true),
             bedNotify = p.getBoolean("bedNotify", false),
             leadMin = p.getInt("lead", 30),
-            light = p.getBoolean("light", false)
+            light = p.getBoolean("light", false),
+            wakeDays = p.getInt("wakeDays", ALL_DAYS)
         )
     }
 
@@ -60,6 +65,7 @@ object Store {
             .putBoolean("bedNotify", s.bedNotify)
             .putInt("lead", s.leadMin)
             .putBoolean("light", s.light)
+            .putInt("wakeDays", s.wakeDays)
             .apply()
     }
 
@@ -179,6 +185,56 @@ fun computeSleep(s: Settings, now: Long): SleepState {
     val prevEnd = next - 86_400_000L + dur
     val from = if (prevEnd > now) next - 16 * 3_600_000L else prevEnd
     return SleepState(false, from, next)
+}
+
+// ---------------------------------------------------------------- días de la alarma
+
+private val DAY_NAMES = listOf("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+/** Lunes = 0 … domingo = 6. */
+fun dayIndexOf(ms: Long): Int {
+    val dow = Calendar.getInstance().apply { timeInMillis = ms }.get(Calendar.DAY_OF_WEEK)
+    return (dow + 5) % 7
+}
+
+fun dayOn(mask: Int, idx: Int): Boolean = ((mask shr idx) and 1) == 1
+
+/** Activa o desactiva un día, pero siempre deja al menos uno marcado. */
+fun toggleDay(mask: Int, idx: Int): Int {
+    val m = mask xor (1 shl idx)
+    return if ((m and ALL_DAYS) == 0) mask else m
+}
+
+fun daysSummary(mask: Int): String {
+    val m = mask and ALL_DAYS
+    if (m == ALL_DAYS) return "Todos los días"
+    if (m == 31) return "Lunes a viernes"
+    if (m == 96) return "Sábado y domingo"
+    return (0..6).filter { dayOn(m, it) }.joinToString(", ") { DAY_NAMES[it] }
+        .replaceFirstChar { it.uppercase() }
+}
+
+/** Próxima vez que debe sonar la alarma de despertar, respetando los días elegidos. */
+fun nextWake(s: Settings, now: Long): Long? {
+    if ((s.wakeDays and ALL_DAYS) == 0) return null
+    for (off in 0..8) {
+        val t = dayAt(now, s.wakeMin, off)
+        if (t > now && dayOn(s.wakeDays, dayIndexOf(t))) return t
+    }
+    return null
+}
+
+/** Próximo aviso para ir a dormir: solo en las noches previas a un día con alarma. */
+fun nextBedReminder(s: Settings, now: Long): Long? {
+    val m = (((s.bedMin - s.leadMin) % 1440) + 1440) % 1440
+    for (off in 0..8) {
+        val r = dayAt(now, m, off)
+        if (r <= now) continue
+        val bed = r + s.leadMin * 60_000L
+        val wake = nextOccurrence(s.wakeMin, bed)
+        if (dayOn(s.wakeDays, dayIndexOf(wake))) return r
+    }
+    return null
 }
 
 // ---------------------------------------------------------------- calculadora

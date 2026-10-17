@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -39,6 +40,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -277,12 +282,14 @@ fun ClockScreen(settings: Settings, onChange: (Settings) -> Unit, onBack: () -> 
                     SwitchRow("Alarma de despertar", "Suena a tu hora, aunque la app esté cerrada", settings.alarmOn) {
                         onChange(settings.copy(alarmOn = it))
                     }
-                    SwitchRow("Aviso para ir a dormir", "Te recuerda antes de tu hora", settings.bedNotify) {
+                    DaysRow(settings.wakeDays, settings.alarmOn) { onChange(settings.copy(wakeDays = it)) }
+                    Spacer(Modifier.height(4.dp))
+                    SwitchRow("Aviso para ir a dormir", "Te recuerda antes de tu hora, los mismos días", settings.bedNotify) {
                         onChange(settings.copy(bedNotify = it))
                     }
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(15 to "15 min antes", 30 to "30 min antes", 60 to "1 h antes").forEach { (v, label) ->
+                        listOf(15 to "15 min", 30 to "30 min", 60 to "1 h").forEach { (v, label) ->
                             Chip(label, settings.leadMin == v) { onChange(settings.copy(leadMin = v)) }
                         }
                     }
@@ -574,4 +581,42 @@ fun pickDate(ctx: Context, current: Long, onPicked: (Long) -> Unit) {
         },
         c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
     ).show()
+}
+
+
+private val DAY_LETTERS = listOf("L", "M", "M", "J", "V", "S", "D")
+private val DAY_FULL = listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
+
+/** Selector de días de la semana para la alarma de despertar. */
+@Composable
+private fun DaysRow(mask: Int, enabled: Boolean, onChange: (Int) -> Unit) {
+    val p = LocalPalette.current
+    Column(Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.45f)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (i in 0..6) {
+                val on = dayOn(mask, i)
+                Box(
+                    Modifier.weight(1f).aspectRatio(1f).clip(CircleShape)
+                        .background(if (on) p.accentSoft else p.chipBg)
+                        .border(if (on) 1.5.dp else 1.dp, if (on) p.accent else p.chipBorder, CircleShape)
+                        .semantics { contentDescription = DAY_FULL[i] }
+                        .clickable { onChange(toggleDay(mask, i)) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(DAY_LETTERS[i], color = p.title, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (enabled) "Suena: ${daysSummary(mask)}" else "Alarma desactivada",
+            color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Lun–Vie", (mask and ALL_DAYS) == 31) { onChange(31) }
+            Chip("Fin de semana", (mask and ALL_DAYS) == 96) { onChange(96) }
+            Chip("Todos", (mask and ALL_DAYS) == ALL_DAYS) { onChange(ALL_DAYS) }
+        }
+    }
 }

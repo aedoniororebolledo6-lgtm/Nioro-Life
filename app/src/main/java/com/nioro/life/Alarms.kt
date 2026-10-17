@@ -75,11 +75,12 @@ object Scheduler {
         for (n in notes) am.cancel(op(c, ACT_NOTE, noteCode(n.id), n.id))
 
         if (s.alarmOn) {
-            setAt(c, nextOccurrence(s.wakeMin, now), op(c, ACT_WAKE, 1))
+            val t = nextWake(s, now)
+            if (t != null) setAt(c, t, op(c, ACT_WAKE, 1))
         }
         if (s.bedNotify) {
-            val m = (((s.bedMin - s.leadMin) % 1440) + 1440) % 1440
-            setAt(c, nextOccurrence(m, now), op(c, ACT_BED, 2))
+            val t = nextBedReminder(s, now)
+            if (t != null) setAt(c, t, op(c, ACT_BED, 2))
         }
         for (n in notes) {
             val r = n.remindAt ?: continue
