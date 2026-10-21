@@ -59,6 +59,17 @@ fun SettingsDialog(settings: Settings, onTheme: (Boolean) -> Unit, onDismiss: ()
     var remote by remember { mutableStateOf<Updater.Remote?>(null) }
     var apk by remember { mutableStateOf<File?>(null) }
 
+    var exportScope by remember { mutableIntStateOf(Export.THIS_MONTH) }
+    var exportMsg by remember { mutableStateOf("") }
+
+    fun openLink(url: String) {
+        try {
+            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            exportMsg = "No se pudo abrir el enlace."
+        }
+    }
+
     val installed = remember { Updater.installedBuild(ctx) }
     val versionName = remember { Updater.installedName(ctx) }
 
@@ -198,9 +209,54 @@ fun SettingsDialog(settings: Settings, onTheme: (Boolean) -> Unit, onDismiss: ()
             }
 
             Spacer(Modifier.height(22.dp))
+            SectionLabel("EXPORTAR FINANZAS A LA NUBE")
+            Text(
+                "Crea una hoja ordenada por mes (se abre en Excel y Google Sheets) y la envías a Drive u OneDrive.",
+                color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Este mes", exportScope == Export.THIS_MONTH) { exportScope = Export.THIS_MONTH; exportMsg = "" }
+                Chip("Mes anterior", exportScope == Export.LAST_MONTH) { exportScope = Export.LAST_MONTH; exportMsg = "" }
+                Chip("Todos", exportScope == Export.ALL_MONTHS) { exportScope = Export.ALL_MONTHS; exportMsg = "" }
+            }
+            Spacer(Modifier.height(12.dp))
+            DialogButton("Enviar a Drive / OneDrive", true, Modifier.fillMaxWidth()) {
+                val intent = try {
+                    Export.shareIntent(ctx, Store.loadTx(ctx), exportScope)
+                } catch (e: Exception) {
+                    exportMsg = "No se pudo crear el archivo: ${e.message ?: "error"}"
+                    return@DialogButton
+                }
+                if (intent == null) {
+                    exportMsg = "No hay movimientos en ese período."
+                } else {
+                    try {
+                        ctx.startActivity(intent)
+                        exportMsg = "Elige Drive u OneDrive en la lista que se abrió."
+                    } catch (e: Exception) {
+                        exportMsg = "No se pudo abrir el menú de compartir."
+                    }
+                }
+            }
+            if (exportMsg.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(exportMsg, color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DialogButton("Abrir Drive", false, Modifier.weight(1f)) {
+                    openLink("https://drive.google.com")
+                }
+                DialogButton("Abrir OneDrive", false, Modifier.weight(1f)) {
+                    openLink("https://onedrive.live.com")
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
             SectionLabel("ACERCA DE")
             Text(
-                "Nioro Life organiza tu sueño, tus notas y tus finanzas. Todo se guarda solo en tu teléfono.",
+                "Nioro Life organiza tu sueño, tus notas y tus finanzas. Todo se guarda solo en tu teléfono; solo sale lo que tú exportas.",
                 color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(18.dp))
