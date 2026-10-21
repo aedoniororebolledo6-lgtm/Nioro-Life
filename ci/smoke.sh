@@ -5,6 +5,7 @@ P=com.nioro.life
 adb install -r NioroLife.apk > install.txt 2>&1
 timeout 30 adb shell pm grant $P android.permission.POST_NOTIFICATIONS
 adb logcat -c
+(adb logcat -v time > live.log 2>&1 &)
 timeout 60 adb shell am start -W -n $P/.MainActivity > start.txt 2>&1
 sleep 10
 
@@ -59,4 +60,5 @@ timeout 60 adb logcat -d > full.log 2>&1
   grep -E "FATAL EXCEPTION|ANR in|Process: $P" full.log | head -20
   grep -E -A14 "FATAL EXCEPTION" full.log | head -80
   echo; cat steps.txt
+  echo "== ultimas lineas del log en vivo"; tail -n 80 live.log | cut -c1-220
 } > report.txt 2>&1
