@@ -35,6 +35,20 @@ jobs:
           set -o pipefail
           gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
 
+      - name: Probar la exportación de finanzas (CSV)
+        id: unit
+        continue-on-error: true
+        run: gradle testDebugUnitTest --no-daemon 2>&1 | tee unit.log | tail -40
+
+      - name: Publicar resultado de la prueba del CSV
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          { echo "resultado: ${{ steps.unit.outcome }}"; echo; cat app/build/export-sample.csv 2>/dev/null || tail -c 8000 unit.log; } > csv-notes.txt
+          gh release delete prueba-csv --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create prueba-csv --repo "$GITHUB_REPOSITORY" --title "Prueba CSV" --notes-file csv-notes.txt --prerelease || true
+
       - name: Publicar errores de compilación
         if: failure() && steps.gradle.outcome == 'failure'
         env:
