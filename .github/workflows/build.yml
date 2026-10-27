@@ -45,7 +45,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          { echo "resultado: ${{ steps.unit.outcome }}"; echo; cat app/build/export-sample.csv 2>/dev/null || tail -c 8000 unit.log; } > csv-notes.txt
+          { echo "resultado: ${{ steps.unit.outcome }}"; echo; grep -E "FAILED|AssertionError|Exception|expected|error:|^e: " -A3 unit.log | head -c 6000; echo; echo "== asistente"; cat app/build/ai-sample.txt 2>/dev/null; echo "== csv"; cat app/build/export-sample.csv 2>/dev/null; } > csv-notes.txt
           gh release delete prueba-csv --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
           gh release create prueba-csv --repo "$GITHUB_REPOSITORY" --title "Prueba CSV" --notes-file csv-notes.txt --prerelease || true
 
