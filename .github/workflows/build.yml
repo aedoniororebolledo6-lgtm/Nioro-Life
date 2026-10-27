@@ -38,7 +38,9 @@ jobs:
       - name: Probar la exportación de finanzas (CSV)
         id: unit
         continue-on-error: true
-        run: gradle testDebugUnitTest --no-daemon 2>&1 | tee unit.log | tail -40
+        run: |
+          set -o pipefail
+          gradle testDebugUnitTest --no-daemon 2>&1 | tee unit.log | tail -40
 
       - name: Publicar resultado de la prueba del CSV
         if: always()

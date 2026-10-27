@@ -28,9 +28,9 @@ class ExportTest {
         // septiembre aparece antes que octubre
         assertTrue(all.indexOf("Septiembre 2026") < all.indexOf("Octubre 2026"))
         // balance octubre: 485000 - 120000 - 30000 pendiente = 335000
-        assertTrue(all.contains("Resumen: balance del mes;335000"))
+        assertTrue(all.contains("Resumen: balance del mes;;;335000"))
         // balance septiembre: 400000 - 20000 = 380000
-        assertTrue(all.contains("Resumen: balance del mes;380000"))
+        assertTrue(all.contains("Resumen: balance del mes;;;380000"))
         // protección contra fórmulas y escape de ; y comillas
         assertTrue(all.contains("'=Prestamo"))
         assertTrue(all.contains("\"Arriendo; depto\""))

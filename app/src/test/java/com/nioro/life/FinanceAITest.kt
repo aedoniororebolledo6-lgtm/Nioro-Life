@@ -21,7 +21,9 @@ class FinanceAITest {
         Cobro(1, "Juan", 50000, "Venta", ms(2026, 10, 2), ms(2026, 10, 10), 10000),
         Cobro(2, "Ana", 20000, "Prestamo", ms(2026, 10, 3), null, 20000)
     )
-    private val log = StringBuilder()
+    companion object {
+        val log = StringBuilder()
+    }
 
     private fun ask(q: String): String {
         val a = FinanceAI.answer(q, tx, cobros, now)
