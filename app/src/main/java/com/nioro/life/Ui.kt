@@ -276,6 +276,26 @@ fun NoteIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {
     }
 }
 
+
+/** Lista con casillas marcadas. */
+@Composable
+fun CheckIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {
+    Canvas(Modifier.size(dp)) {
+        val w = size.minDimension
+        val sw = w * 0.075f
+        // casilla 1 con visto
+        drawRoundRect(color, Offset(w * 0.1f, w * 0.14f), androidx.compose.ui.geometry.Size(w * 0.24f, w * 0.24f),
+            androidx.compose.ui.geometry.CornerRadius(w * 0.05f), style = Stroke(sw))
+        drawLine(color, Offset(w * 0.16f, w * 0.27f), Offset(w * 0.21f, w * 0.33f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.21f, w * 0.33f), Offset(w * 0.3f, w * 0.19f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.48f, w * 0.26f), Offset(w * 0.9f, w * 0.26f), sw, StrokeCap.Round)
+        // casilla 2
+        drawRoundRect(color, Offset(w * 0.1f, w * 0.58f), androidx.compose.ui.geometry.Size(w * 0.24f, w * 0.24f),
+            androidx.compose.ui.geometry.CornerRadius(w * 0.05f), style = Stroke(sw))
+        drawLine(color, Offset(w * 0.48f, w * 0.7f), Offset(w * 0.8f, w * 0.7f), sw, StrokeCap.Round)
+    }
+}
+
 /** Moneda con símbolo de pesos, dibujada con trazos. */
 @Composable
 fun CoinIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {

@@ -41,6 +41,34 @@ data class Tx(
 
 data class SleepState(val sleeping: Boolean, val fromMs: Long, val targetMs: Long)
 
+/** Dinero que otras personas te deben (cobranzas). `paidAmt` acumula los abonos. */
+data class Cobro(
+    val id: Long,
+    val person: String,
+    val amount: Long,
+    val reason: String,
+    val date: Long,
+    val due: Long?,
+    val paidAmt: Long
+) {
+    val remaining: Long get() = maxOf(0L, amount - paidAmt)
+    val settled: Boolean get() = remaining <= 0L
+}
+
+data class CheckItem(val id: Long, val text: String, val price: Long, val done: Boolean)
+
+/** kind: 0 compras, 1 repuestos, 2 equipos, 3 deseos, 4 otra. */
+data class CheckList(
+    val id: Long,
+    val title: String,
+    val kind: Int,
+    val items: List<CheckItem>,
+    val created: Long
+)
+
+val LIST_KIND_NAMES = listOf("Compras", "Repuestos", "Equipos", "Deseos", "Otra")
+val LIST_KIND_EMOJI = listOf("🛒", "🔧", "💻", "⭐", "📋")
+
 object Store {
     private fun prefs(c: Context) = c.getSharedPreferences("nioro", Context.MODE_PRIVATE)
 
@@ -137,6 +165,94 @@ object Store {
             arr.put(o)
         }
         prefs(c).edit().putString("tx", arr.toString()).apply()
+    }
+
+    fun loadCobros(c: Context): List<Cobro> {
+        val raw = prefs(c).getString("cobros", "[]") ?: "[]"
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                Cobro(
+                    id = o.getLong("id"),
+                    person = o.optString("person", ""),
+                    amount = o.optLong("amount", 0L),
+                    reason = o.optString("reason", ""),
+                    date = o.optLong("date", System.currentTimeMillis()),
+                    due = if (o.has("due") && !o.isNull("due")) o.getLong("due") else null,
+                    paidAmt = o.optLong("paidAmt", 0L)
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveCobros(c: Context, list: List<Cobro>) {
+        val arr = JSONArray()
+        for (t in list) {
+            val o = JSONObject()
+            o.put("id", t.id)
+            o.put("person", t.person)
+            o.put("amount", t.amount)
+            o.put("reason", t.reason)
+            o.put("date", t.date)
+            if (t.due != null) o.put("due", t.due)
+            o.put("paidAmt", t.paidAmt)
+            arr.put(o)
+        }
+        prefs(c).edit().putString("cobros", arr.toString()).apply()
+    }
+
+    fun loadLists(c: Context): List<CheckList> {
+        val raw = prefs(c).getString("lists", "[]") ?: "[]"
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val its = o.optJSONArray("items") ?: JSONArray()
+                CheckList(
+                    id = o.getLong("id"),
+                    title = o.optString("title", ""),
+                    kind = o.optInt("kind", 4),
+                    created = o.optLong("created", 0L),
+                    items = (0 until its.length()).map { j ->
+                        val q = its.getJSONObject(j)
+                        CheckItem(
+                            id = q.getLong("id"),
+                            text = q.optString("text", ""),
+                            price = q.optLong("price", 0L),
+                            done = q.optBoolean("done", false)
+                        )
+                    }
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveLists(c: Context, list: List<CheckList>) {
+        val arr = JSONArray()
+        for (l in list) {
+            val o = JSONObject()
+            o.put("id", l.id)
+            o.put("title", l.title)
+            o.put("kind", l.kind)
+            o.put("created", l.created)
+            val its = JSONArray()
+            for (q in l.items) {
+                val x = JSONObject()
+                x.put("id", q.id)
+                x.put("text", q.text)
+                x.put("price", q.price)
+                x.put("done", q.done)
+                its.put(x)
+            }
+            o.put("items", its)
+            arr.put(o)
+        }
+        prefs(c).edit().putString("lists", arr.toString()).apply()
     }
 }
 
@@ -250,6 +366,14 @@ fun evalExpr(raw: String): Double? {
     } catch (e: Exception) {
         null
     }
+}
+
+
+/** Evalúa una expresión ya limpia (solo números con punto decimal y + - * / paréntesis). */
+fun evalPlain(s: String): Double? = try {
+    ExprParser(s.replace(" ", "")).parse()
+} catch (e: Exception) {
+    null
 }
 
 private class ExprParser(val s: String) {

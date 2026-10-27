@@ -70,6 +70,8 @@ fun NioroApp(resumeTick: Int) {
     var settings by remember { mutableStateOf(Store.loadSettings(ctx)) }
     var notes by remember { mutableStateOf(Store.loadNotes(ctx)) }
     var tx by remember { mutableStateOf(Store.loadTx(ctx)) }
+    var cobros by remember { mutableStateOf(Store.loadCobros(ctx)) }
+    var lists by remember { mutableStateOf(Store.loadLists(ctx)) }
     var screen by remember { mutableStateOf("home") }
     var showSettings by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -78,6 +80,8 @@ fun NioroApp(resumeTick: Int) {
         settings = Store.loadSettings(ctx)
         notes = Store.loadNotes(ctx)
         tx = Store.loadTx(ctx)
+        cobros = Store.loadCobros(ctx)
+        lists = Store.loadLists(ctx)
     }
     LaunchedEffect(Unit) {
         while (true) {
@@ -123,6 +127,26 @@ fun NioroApp(resumeTick: Int) {
         tx = list
         Store.saveTx(ctx, list)
     }
+    val saveCobro: (Cobro) -> Unit = { c ->
+        val list = cobros.filter { it.id != c.id } + c
+        cobros = list
+        Store.saveCobros(ctx, list)
+    }
+    val deleteCobro: (Cobro) -> Unit = { c ->
+        val list = cobros.filter { it.id != c.id }
+        cobros = list
+        Store.saveCobros(ctx, list)
+    }
+    val saveList: (CheckList) -> Unit = { l ->
+        val list = lists.filter { it.id != l.id } + l
+        lists = list
+        Store.saveLists(ctx, list)
+    }
+    val deleteList: (CheckList) -> Unit = { l ->
+        val list = lists.filter { it.id != l.id }
+        lists = list
+        Store.saveLists(ctx, list)
+    }
     val deleteTx: (Tx) -> Unit = { t ->
         val list = tx.filter { it.id != t.id }
         tx = list
@@ -142,9 +166,10 @@ fun NioroApp(resumeTick: Int) {
                     when (s) {
                         "clock" -> ClockScreen(settings, updateSettings) { screen = "home" }
                         "notes" -> NotesScreen(notes, saveNote, deleteNote) { screen = "home" }
-                        "finance" -> FinanceScreen(tx, saveTx, deleteTx) { screen = "home" }
+                        "finance" -> FinanceScreen(tx, cobros, saveTx, deleteTx, saveCobro, deleteCobro) { screen = "home" }
+                        "lists" -> ListsScreen(lists, saveList, deleteList) { screen = "home" }
                         else -> HomeScreen(
-                            settings, notes, tx, now,
+                            settings, notes, tx, cobros, lists, now,
                             onGo = { screen = it },
                             onMenu = { showSettings = true }
                         )

@@ -76,6 +76,8 @@ fun HomeScreen(
     settings: Settings,
     notes: List<Note>,
     tx: List<Tx>,
+    cobros: List<Cobro>,
+    lists: List<CheckList>,
     now: Long,
     onGo: (String) -> Unit,
     onMenu: () -> Unit
@@ -187,10 +189,32 @@ fun HomeScreen(
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     GlowText("Finanzas", 19.sp)
+                    val porCobrar = cobros.filter { !it.settled }.sumOf { it.remaining }
                     Text(
-                        "Saldo del mes: ${fmtMoney(sum.balance)}",
+                        "Saldo del mes: ${fmtMoney(sum.balance)}" +
+                            (if (porCobrar > 0) " · Por cobrar ${fmtMoney(porCobrar)}" else ""),
                         color = if (sum.balance < 0) p.expense else p.muted,
                         fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
+                    )
+                }
+                ForwardIcon()
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Glass(Modifier.fillMaxWidth(), onClick = { onGo("lists") }) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconBadge { CheckIcon() }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    GlowText("Listas", 19.sp)
+                    val pendingItems = lists.sumOf { l -> l.items.count { !it.done } }
+                    Text(
+                        when {
+                            lists.isEmpty() -> "Compras, repuestos, deseos…"
+                            else -> "${lists.size} ${if (lists.size == 1) "lista" else "listas"} · $pendingItems por hacer"
+                        },
+                        color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
                     )
                 }
                 ForwardIcon()
