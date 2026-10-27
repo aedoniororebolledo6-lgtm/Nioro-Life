@@ -27,7 +27,7 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   tap "=Leche" 2; look 24_item_hecho; back; back
   tap "=Finanzas" 2; tap "Cobranzas" 2; look 25_cobranzas
   tap "+ Nueva cobranza" 2; type_in "Qui" "Juan"; type_in "Monto o cuenta" "50000"; back; tap "=Guardar" 2; look 26_cobranza_guardada
-  tap "Asistente" 2; type_in "Escribe" "20% de 85000"; timeout 20 adb shell input keyevent 66; sleep 2; look 27_asistente
+  tap "Asistente" 2; type_in "Escribe" "45%slucas%smas%siva"; timeout 20 adb shell input keyevent 66; sleep 2; look 27_asistente
   back; back; back
 
   tap "=Reloj"; look 02a_reloj
