@@ -66,6 +66,9 @@ data class CheckList(
     val created: Long
 )
 
+/** Cosas que ya agregaste antes a listas de un tipo; sirven de sugerencias. */
+data class HistItem(val text: String, val price: Long, val count: Int)
+
 val LIST_KIND_NAMES = listOf("Compras", "Repuestos", "Equipos", "Deseos", "Otra")
 val LIST_KIND_EMOJI = listOf("🛒", "🔧", "💻", "⭐", "📋")
 
@@ -253,6 +256,40 @@ object Store {
             arr.put(o)
         }
         prefs(c).edit().putString("lists", arr.toString()).apply()
+    }
+
+    fun loadHistory(c: Context): Map<Int, List<HistItem>> {
+        val raw = prefs(c).getString("listHistory", "{}") ?: "{}"
+        return try {
+            val o = JSONObject(raw)
+            val out = HashMap<Int, List<HistItem>>()
+            for (k in o.keys()) {
+                val arr = o.getJSONArray(k)
+                out[k.toInt()] = (0 until arr.length()).map { i ->
+                    val q = arr.getJSONObject(i)
+                    HistItem(q.optString("t", ""), q.optLong("p", 0L), q.optInt("n", 1))
+                }
+            }
+            out
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    fun saveHistory(c: Context, h: Map<Int, List<HistItem>>) {
+        val o = JSONObject()
+        for ((k, list) in h) {
+            val arr = JSONArray()
+            for (q in list) {
+                val x = JSONObject()
+                x.put("t", q.text)
+                x.put("p", q.price)
+                x.put("n", q.count)
+                arr.put(x)
+            }
+            o.put(k.toString(), arr)
+        }
+        prefs(c).edit().putString("listHistory", o.toString()).apply()
     }
 }
 

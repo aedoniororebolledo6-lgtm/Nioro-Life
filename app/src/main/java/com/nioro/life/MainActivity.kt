@@ -72,6 +72,7 @@ fun NioroApp(resumeTick: Int) {
     var tx by remember { mutableStateOf(Store.loadTx(ctx)) }
     var cobros by remember { mutableStateOf(Store.loadCobros(ctx)) }
     var lists by remember { mutableStateOf(Store.loadLists(ctx)) }
+    var history by remember { mutableStateOf(Store.loadHistory(ctx)) }
     var screen by remember { mutableStateOf("home") }
     var showSettings by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -82,6 +83,7 @@ fun NioroApp(resumeTick: Int) {
         tx = Store.loadTx(ctx)
         cobros = Store.loadCobros(ctx)
         lists = Store.loadLists(ctx)
+        history = Store.loadHistory(ctx)
     }
     LaunchedEffect(Unit) {
         while (true) {
@@ -167,7 +169,11 @@ fun NioroApp(resumeTick: Int) {
                         "clock" -> ClockScreen(settings, updateSettings) { screen = "home" }
                         "notes" -> NotesScreen(notes, saveNote, deleteNote) { screen = "home" }
                         "finance" -> FinanceScreen(tx, cobros, saveTx, deleteTx, saveCobro, deleteCobro) { screen = "home" }
-                        "lists" -> ListsScreen(lists, saveList, deleteList) { screen = "home" }
+                        "lists" -> ListsScreen(
+                            lists, history,
+                            onHistory = { h -> history = h; Store.saveHistory(ctx, h) },
+                            onSave = saveList, onDelete = deleteList
+                        ) { screen = "home" }
                         else -> HomeScreen(
                             settings, notes, tx, cobros, lists, now,
                             onGo = { screen = it },

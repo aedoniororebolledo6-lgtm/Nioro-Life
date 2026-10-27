@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +58,8 @@ import androidx.compose.ui.window.DialogProperties
 @Composable
 fun ListsScreen(
     lists: List<CheckList>,
+    history: Map<Int, List<HistItem>>,
+    onHistory: (Map<Int, List<HistItem>>) -> Unit,
     onSave: (CheckList) -> Unit,
     onDelete: (CheckList) -> Unit,
     onBack: () -> Unit
@@ -66,6 +69,8 @@ fun ListsScreen(
     var openId by remember { mutableLongStateOf(-1L) }
     var creating by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
+    var createKind by remember { mutableStateOf(0) }
+    var collapsed by remember { mutableStateOf(setOf<Int>()) }
 
     val open = lists.firstOrNull { it.id == openId }
     BackHandler(enabled = open != null) { openId = -1L }
@@ -82,7 +87,7 @@ fun ListsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    Glass(Modifier.fillMaxWidth(), radius = 22.dp, onClick = { creating = true }) {
+                    Glass(Modifier.fillMaxWidth(), radius = 22.dp, onClick = { createKind = 0; creating = true }) {
                         Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
                             Text("+ Nueva lista", color = p.accent, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
                         }
@@ -100,8 +105,20 @@ fun ListsScreen(
                         }
                     }
                 } else {
-                    items(lists.sortedByDescending { it.created }, key = { it.id }) { l ->
-                        ListCard(l) { openId = l.id }
+                    for (k in 0..4) {
+                        val group = lists.filter { it.kind == k }.sortedByDescending { it.created }
+                        if (group.isEmpty()) continue
+                        val isCollapsed = k in collapsed
+                        item(key = "grupo$k") {
+                            GroupHeader(
+                                kind = k, count = group.size, collapsed = isCollapsed,
+                                onToggle = { collapsed = if (isCollapsed) collapsed - k else collapsed + k },
+                                onAdd = { createKind = k; creating = true }
+                            )
+                        }
+                        if (!isCollapsed) {
+                            items(group, key = { it.id }) { l -> ListCard(l) { openId = l.id } }
+                        }
                     }
                 }
             }
@@ -109,6 +126,8 @@ fun ListsScreen(
     } else {
         ListDetail(
             list = open,
+            suggestions = suggestionsFor(open, history),
+            onAdded = { t, pr -> onHistory(recordHistory(history, open.kind, t, pr)) },
             onChange = onSave,
             onBack = { openId = -1L },
             onRename = { renaming = true },
@@ -127,7 +146,7 @@ fun ListsScreen(
 
     if (creating) {
         ListDialog(
-            heading = "Nueva lista", confirm = "Crear", initialTitle = "", initialKind = 0,
+            heading = "Nueva lista", confirm = "Crear", initialTitle = "", initialKind = createKind,
             onDismiss = { creating = false }
         ) { title, kind ->
             val l = CheckList(
@@ -193,6 +212,8 @@ private fun ListCard(l: CheckList, onClick: () -> Unit) {
 @Composable
 private fun ListDetail(
     list: CheckList,
+    suggestions: List<HistItem>,
+    onAdded: (String, Long) -> Unit,
     onChange: (CheckList) -> Unit,
     onBack: () -> Unit,
     onRename: () -> Unit,
@@ -206,12 +227,17 @@ private fun ListDetail(
     val pending = pendingTotal(list)
     val hasPrices = list.items.any { it.price > 0 }
 
+    fun addItem(t: String, price: Long) {
+        val item = CheckItem(id = System.nanoTime(), text = t, price = price, done = false)
+        onChange(list.copy(items = list.items + item))
+        onAdded(t, price)
+    }
+
     fun add() {
         val t = text.trim()
         if (t.isEmpty()) return
         val price = evalExpr(priceText)?.let { Math.round(it) }?.takeIf { it > 0 } ?: 0L
-        val item = CheckItem(id = System.nanoTime(), text = t, price = price, done = false)
-        onChange(list.copy(items = list.items + item))
+        addItem(t, price)
         text = ""
         priceText = ""
     }
@@ -267,6 +293,22 @@ private fun ListDetail(
                     onToggle = { onChange(list.copy(items = list.items.map { x -> if (x.id == row.id) x.copy(done = !x.done) else x })) },
                     onDelete = { onChange(list.copy(items = list.items.filter { x -> x.id != row.id })) }
                 )
+            }
+        }
+
+        if (suggestions.isNotEmpty()) {
+            Text(
+                "PARA AÑADIR (toca para agregar)", color = p.muted, fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold, letterSpacing = 0.8.sp,
+                modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
+            )
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                for (sg in suggestions) {
+                    Chip("+ ${sg.text}", false) { addItem(sg.text, sg.price) }
+                }
             }
         }
 
@@ -383,4 +425,52 @@ private fun ListDialog(
             }
         }
     }
+}
+
+
+@Composable
+private fun GroupHeader(kind: Int, count: Int, collapsed: Boolean, onToggle: () -> Unit, onAdd: () -> Unit) {
+    val p = LocalPalette.current
+    Row(
+        Modifier.fillMaxWidth().padding(top = 6.dp).clickable(onClick = onToggle).padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(if (collapsed) "▸" else "▾", color = p.muted, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.width(8.dp))
+        Text(LIST_KIND_EMOJI.getOrElse(kind) { "📋" }, fontSize = 18.sp)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "${LIST_KIND_NAMES.getOrElse(kind) { "Otra" }.uppercase()} ($count)",
+            color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp,
+            modifier = Modifier.weight(1f)
+        )
+        Chip("+ Nueva", false, onAdd)
+    }
+}
+
+private val SEEDS = mapOf(
+    0 to listOf("Pan", "Leche", "Huevos", "Arroz", "Fideos", "Aceite", "Azúcar", "Café", "Papel higiénico", "Detergente"),
+    1 to listOf("Filtro de aceite", "Filtro de aire", "Bujías", "Pastillas de freno", "Batería", "Correa"),
+    2 to listOf("Notebook", "Celular", "Cargador", "Audífonos", "Mouse", "Teclado")
+)
+
+/** Cosas para añadir a una lista: lo que ya agregaste antes a listas de su tipo (lo más usado primero) y algunas ideas. */
+fun suggestionsFor(list: CheckList, history: Map<Int, List<HistItem>>): List<HistItem> {
+    val have = list.items.map { it.text.trim().lowercase() }.toSet()
+    val hist = (history[list.kind] ?: emptyList()).sortedByDescending { it.count }
+    val seen = hist.map { it.text.trim().lowercase() }.toSet()
+    val seeds = (SEEDS[list.kind] ?: emptyList()).filter { it.lowercase() !in seen }.map { HistItem(it, 0L, 0) }
+    return (hist + seeds).filter { it.text.trim().lowercase() !in have }.take(14)
+}
+
+/** Anota que agregaste `text` a una lista de tipo `kind` (cuenta cuántas veces y recuerda el último precio). */
+fun recordHistory(history: Map<Int, List<HistItem>>, kind: Int, text: String, price: Long): Map<Int, List<HistItem>> {
+    val clean = text.trim()
+    if (clean.isEmpty()) return history
+    val cur = history[kind] ?: emptyList()
+    val key = clean.lowercase()
+    val old = cur.firstOrNull { it.text.trim().lowercase() == key }
+    val upd = HistItem(clean, if (price > 0) price else old?.price ?: 0L, (old?.count ?: 0) + 1)
+    val list = (cur.filter { it !== old } + upd).sortedByDescending { it.count }.take(60)
+    return history + (kind to list)
 }
