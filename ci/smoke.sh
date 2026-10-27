@@ -20,12 +20,15 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   echo "== PASOS"
   look 01_home_noche
 
-  tap "=Finanzas"; tap "+ Gasto"; type_in "Monto o cuenta" "5000"; type_in "Concepto" "Pan"
-  back; tap "=Guardar" 2; back
-  tap "Men" 2; look 00_menu_inicial
-  timeout 20 adb shell input swipe 540 1700 540 500 400; sleep 1; look 00b_menu_exportar
-  tap "Enviar a Drive" 3; look 00c_exportar_compartir; back
-  look 00d_tras_compartir; back
+  tap "=Listas" 2; look 20_listas_vacio
+  tap "+ Nueva lista" 2; look 21_nueva_lista
+  tap "=Crear" 2; look 22_lista_abierta
+  type_in "Elemento" "Leche"; timeout 20 adb shell input keyevent 66; sleep 1; timeout 20 adb shell input keyevent 66; sleep 2; look 23_lista_con_item
+  tap "=Leche" 2; look 24_item_hecho; back; back
+  tap "=Finanzas" 2; tap "Cobranzas" 2; look 25_cobranzas
+  tap "+ Nueva cobranza" 2; type_in "Qui" "Juan"; type_in "Monto o cuenta" "50000"; back; tap "=Guardar" 2; look 26_cobranza_guardada
+  tap "Asistente" 2; type_in "Escribe" "20% de 85000"; timeout 20 adb shell input keyevent 66; sleep 2; look 27_asistente
+  back; back; back
 
   tap "=Reloj"; look 02a_reloj
   tap "=Sábado" 1; tap "=Domingo" 1; look 02b_reloj_sin_finde
