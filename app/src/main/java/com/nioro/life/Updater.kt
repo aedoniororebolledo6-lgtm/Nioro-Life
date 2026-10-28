@@ -12,7 +12,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Busca y descarga nuevas versiones desde las Releases del repositorio de GitHub. */
+/** Busca y descarga nuevas versiones desde las Releases del repositorio de GitHub (Wi-Fi o datos móviles). */
 object Updater {
     const val REPO = "aedoniororebolledo6-lgtm/Nioro-Life"
 
@@ -24,6 +24,14 @@ object Updater {
         val caps = cm.getNetworkCapabilities(net) ?: return false
         return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+    }
+
+    /** Hay conexión a internet (Wi-Fi, datos móviles u otra). */
+    fun isOnline(c: Context): Boolean {
+        val cm = c.getSystemService(ConnectivityManager::class.java) ?: return false
+        val net = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(net) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     fun installedBuild(c: Context): Long =

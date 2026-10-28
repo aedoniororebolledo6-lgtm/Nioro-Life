@@ -1,5 +1,6 @@
 package com.nioro.life
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Canvas
@@ -54,7 +55,7 @@ fun SettingsDialog(settings: Settings, onTheme: (Boolean) -> Unit, onDismiss: ()
 
     // 0 reposo, 1 buscando, 2 al día, 3 hay versión nueva, 4 descargando, 5 lista, 6 error
     var uState by remember { mutableIntStateOf(0) }
-    var uMsg by remember { mutableStateOf("Solo se actualiza por Wi-Fi, para no gastar tus datos.") }
+    var uMsg by remember { mutableStateOf("Funciona con Wi-Fi o con datos móviles.") }
     var progress by remember { mutableIntStateOf(0) }
     var remote by remember { mutableStateOf<Updater.Remote?>(null) }
     var apk by remember { mutableStateOf<File?>(null) }
@@ -88,9 +89,9 @@ fun SettingsDialog(settings: Settings, onTheme: (Boolean) -> Unit, onDismiss: ()
     }
 
     fun check() {
-        if (!Updater.isWifi(ctx)) {
+        if (!Updater.isOnline(ctx)) {
             uState = 6
-            uMsg = "Conéctate a una red Wi-Fi para buscar actualizaciones."
+            uMsg = "Sin conexión a internet. Activa el Wi-Fi o los datos móviles."
             return
         }
         uState = 1
@@ -113,13 +114,8 @@ fun SettingsDialog(settings: Settings, onTheme: (Boolean) -> Unit, onDismiss: ()
         }
     }
 
-    fun download() {
+    fun startDownload() {
         val r = remote ?: return
-        if (!Updater.isWifi(ctx)) {
-            uState = 6
-            uMsg = "Conéctate a una red Wi-Fi para descargar la actualización."
-            return
-        }
         uState = 4
         progress = 0
         uMsg = "Descargando…"
@@ -134,6 +130,25 @@ fun SettingsDialog(settings: Settings, onTheme: (Boolean) -> Unit, onDismiss: ()
                 uState = 6
                 uMsg = "Falló la descarga: ${e.message ?: "sin conexión"}"
             }
+        }
+    }
+
+    fun download() {
+        val r = remote ?: return
+        if (!Updater.isOnline(ctx)) {
+            uState = 6
+            uMsg = "Sin conexión a internet. Activa el Wi-Fi o los datos móviles."
+            return
+        }
+        if (Updater.isWifi(ctx)) {
+            startDownload()
+        } else {
+            val mb = if (r.size > 0) " (unos ${r.size / 1_000_000} MB)" else ""
+            AlertDialog.Builder(ctx)
+                .setMessage("Estás usando datos móviles. La descarga pesa$mb y gastará de tu plan. ¿Descargar ahora?")
+                .setPositiveButton("Descargar") { _, _ -> startDownload() }
+                .setNegativeButton("Cancelar", null)
+                .show()
         }
     }
 
