@@ -14,16 +14,24 @@ shot() { timeout 30 adb exec-out screencap -p > "$1.png"; }
 tap()  { ui; XY=$(python3 ci/tap.py "$1") && { timeout 20 adb shell input tap $XY; echo "  tap '$1' ($XY)"; } || echo "  NO ENCONTRADO: '$1'"; sleep "${2:-2}"; }
 type_in() { tap "$1" 1; timeout 20 adb shell input text "$2"; sleep 1; }
 look() { ui; echo "[$1] $(python3 ci/texts.py)"; shot "$1"; }
+settheme() {
+  printf '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n<map>\n    <int name="theme" value="%s" />\n</map>\n' "$1" > theme.xml
+  timeout 20 adb shell am force-stop $P
+  timeout 30 adb push theme.xml /data/local/tmp/theme.xml > /dev/null 2>&1
+  timeout 30 adb shell "run-as $P mkdir -p shared_prefs; run-as $P cp /data/local/tmp/theme.xml shared_prefs/nioro.xml"
+  timeout 60 adb shell am start -W -n $P/.MainActivity > /dev/null 2>&1
+  sleep 7
+}
 back() { timeout 20 adb shell input keyevent 4; sleep 2; }
 
 {
   echo "== PASOS"
   look 01_home_noche
 
-  tap "Men" 2; tap "=Rosa" 3; look 30_menu_rosa; back; sleep 3; look 31_home_rosa
-  tap "Men" 2; tap "=Rojo" 3; back; sleep 4; look 32_home_rojo
-  tap "Men" 2; tap "=Morado" 3; back; sleep 4; look 33_home_morado
-  tap "Men" 2; tap "=Noche" 3; back
+  settheme 2; look 30_home_rosa; sleep 4; shot 30b_rosa
+  settheme 3; look 31_home_rojo; sleep 4; shot 31b_rojo
+  settheme 4; look 32_home_morado; sleep 4; shot 32b_morado
+  settheme 0
 
   tap "=Listas" 2; look 20_listas_vacio
   tap "+ Nueva lista" 2; look 21_nueva_lista
