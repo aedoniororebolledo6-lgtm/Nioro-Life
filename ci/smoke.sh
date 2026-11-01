@@ -68,5 +68,5 @@ timeout 60 adb logcat -d > full.log 2>&1
   grep -E "FATAL EXCEPTION|ANR in|Process: $P" full.log | head -20
   grep -E -A14 "FATAL EXCEPTION" full.log | head -80
   echo; cat steps.txt
-  echo "== ultimas lineas del log en vivo"; tail -n 80 live.log | cut -c1-220
+  echo "== lineas clave del log en vivo"; grep -E "nioro|AndroidRuntime|ANR|lowmemory|Out of memory|OutOfMemory|lmkd|Killing|has died|Fatal|SIGSEGV|tombstone|SurfaceSyncGroup|Choreographer|Davey" live.log | cut -c1-240 | tail -n 70; echo "== ultimas 15 lineas"; tail -n 15 live.log | cut -c1-200
 } > report.txt 2>&1
