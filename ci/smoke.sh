@@ -33,6 +33,7 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   settheme 4; look 32_home_morado; sleep 4; shot 32b_morado
   settheme 0
 
+  timeout 20 adb shell input swipe 540 1800 540 900 300; sleep 1
   tap "=Listas" 2; look 20_listas_vacio
   tap "+ Nueva lista" 2; look 21_nueva_lista
   tap "=Crear" 2; look 22_lista_abierta
@@ -59,7 +60,8 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   back; tap "=Guardar" 2; look 06_finanzas_noche
   back; look 07_home_con_saldo
 
-  tap "Men" 2; look 08_menu_noche
+  timeout 60 adb shell am start -W -n $P/.MainActivity > /dev/null 2>&1; sleep 5
+  tap "Men" 3; look 08_menu_noche
   tap "=Día"; look 09_menu_dia
   tap "Buscar actualiz" 9; look 10_actualizacion
   back; look 11_home_dia
