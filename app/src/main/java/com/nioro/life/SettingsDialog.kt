@@ -47,7 +47,7 @@ import java.io.File
 
 /** Menú de configuración: apariencia (noche / día) y actualización desde GitHub. */
 @Composable
-fun SettingsDialog(settings: Settings, onTheme: (Boolean) -> Unit, onDismiss: () -> Unit) {
+fun SettingsDialog(settings: Settings, onTheme: (Int) -> Unit, onDismiss: () -> Unit) {
     val p = LocalPalette.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -175,9 +175,21 @@ fun SettingsDialog(settings: Settings, onTheme: (Boolean) -> Unit, onDismiss: ()
             Spacer(Modifier.height(20.dp))
             SectionLabel("APARIENCIA")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ThemeCard("Noche", DarkPalette, !settings.light, Modifier.weight(1f)) { onTheme(false) }
-                ThemeCard("Día", LightPalette, settings.light, Modifier.weight(1f)) { onTheme(true) }
+                for (t in 0..1) {
+                    ThemeCard(THEME_NAMES[t], paletteFor(t), settings.theme == t, Modifier.weight(1f)) { onTheme(t) }
+                }
             }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                for (t in 2..4) {
+                    ThemeCard(THEME_NAMES[t], paletteFor(t), settings.theme == t, Modifier.weight(1f)) { onTheme(t) }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Rosa, Rojo y Morado tienen su propia animación de fondo.",
+                color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold
+            )
 
             Spacer(Modifier.height(22.dp))
             SectionLabel("ACTUALIZACIÓN")

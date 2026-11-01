@@ -23,7 +23,8 @@ data class Settings(
     val alarmOn: Boolean = true,
     val bedNotify: Boolean = false,
     val leadMin: Int = 30,
-    val light: Boolean = false,
+    /** Tema: 0 noche, 1 día, 2 rosa, 3 rojo, 4 morado. */
+    val theme: Int = 0,
     /** Días en que suena la alarma (bits: lunes = 1 … domingo = 64). */
     val wakeDays: Int = ALL_DAYS
 )
@@ -83,7 +84,7 @@ object Store {
             alarmOn = p.getBoolean("alarm", true),
             bedNotify = p.getBoolean("bedNotify", false),
             leadMin = p.getInt("lead", 30),
-            light = p.getBoolean("light", false),
+            theme = p.getInt("theme", if (p.getBoolean("light", false)) 1 else 0),
             wakeDays = p.getInt("wakeDays", ALL_DAYS)
         )
     }
@@ -95,7 +96,7 @@ object Store {
             .putBoolean("alarm", s.alarmOn)
             .putBoolean("bedNotify", s.bedNotify)
             .putInt("lead", s.leadMin)
-            .putBoolean("light", s.light)
+            .putInt("theme", s.theme)
             .putInt("wakeDays", s.wakeDays)
             .apply()
     }

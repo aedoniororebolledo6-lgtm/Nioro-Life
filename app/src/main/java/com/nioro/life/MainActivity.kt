@@ -93,7 +93,7 @@ fun NioroApp(resumeTick: Int) {
     }
     BackHandler(enabled = screen != "home") { screen = "home" }
 
-    val palette = if (settings.light) LightPalette else DarkPalette
+    val palette = paletteFor(settings.theme)
 
     // Íconos de la barra de estado oscuros en el tema claro y claros en el oscuro.
     val view = LocalView.current
@@ -163,7 +163,7 @@ fun NioroApp(resumeTick: Int) {
         }
         MaterialTheme(colorScheme = scheme) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(palette.bg))) {
-                Stars()
+                Ambient()
                 Crossfade(targetState = screen, label = "nav") { s ->
                     when (s) {
                         "clock" -> ClockScreen(settings, updateSettings) { screen = "home" }
@@ -184,7 +184,7 @@ fun NioroApp(resumeTick: Int) {
                 if (showSettings) {
                     SettingsDialog(
                         settings = settings,
-                        onTheme = { light -> updateSettings(settings.copy(light = light)) },
+                        onTheme = { t -> updateSettings(settings.copy(theme = t)) },
                         onDismiss = { showSettings = false }
                     )
                 }

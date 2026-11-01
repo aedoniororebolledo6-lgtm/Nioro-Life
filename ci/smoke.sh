@@ -20,6 +20,11 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   echo "== PASOS"
   look 01_home_noche
 
+  tap "Men" 2; tap "=Rosa" 3; look 30_menu_rosa; back; sleep 3; look 31_home_rosa
+  tap "Men" 2; tap "=Rojo" 3; back; sleep 4; look 32_home_rojo
+  tap "Men" 2; tap "=Morado" 3; back; sleep 4; look 33_home_morado
+  tap "Men" 2; tap "=Noche" 3; back
+
   tap "=Listas" 2; look 20_listas_vacio
   tap "+ Nueva lista" 2; look 21_nueva_lista
   tap "=Crear" 2; look 22_lista_abierta
