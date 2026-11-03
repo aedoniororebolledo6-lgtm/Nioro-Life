@@ -13,6 +13,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -39,7 +42,9 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -87,6 +92,8 @@ fun NioroApp(resumeTick: Int) {
     var trainActive by remember { mutableStateOf(TrainStore.loadActive(ctx)) }
     var trainCfg by remember { mutableStateOf(TrainStore.loadCfg(ctx)) }
     var screen by remember { mutableStateOf("home") }
+    // punto del dock desde donde crece la pantalla que se abre (y hacia donde se encoge al volver)
+    var dockOrigin by remember { mutableStateOf(TransformOrigin(0.5f, 0.92f)) }
     var showSettings by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
@@ -188,14 +195,26 @@ fun NioroApp(resumeTick: Int) {
                 AnimatedContent(
                     targetState = screen,
                     transitionSpec = {
-                        val goingHome = targetState == "home"
+                        val dockScreens = setOf("train", "finance", "lists")
+                        val o = dockOrigin
+                        val grow = spring<Float>(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)
                         val spec = spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)
-                        if (goingHome) {
-                            (fadeIn(tween(260)) + scaleIn(tween(320), initialScale = 0.94f))
-                                .togetherWith(slideOutHorizontally(tween(260)) { it / 3 } + fadeOut(tween(200)))
-                        } else {
-                            (slideInHorizontally(spec) { it / 3 } + fadeIn(tween(260)))
-                                .togetherWith(fadeOut(tween(200)) + scaleOut(tween(260), targetScale = 0.94f))
+                        when {
+                            // desde el dock: la pantalla nace del ícono y se expande
+                            initialState == "home" && targetState in dockScreens ->
+                                (scaleIn(grow, initialScale = 0.12f, transformOrigin = o) + fadeIn(tween(200)))
+                                    .togetherWith(scaleOut(tween(320), targetScale = 0.9f) + fadeOut(tween(280)))
+                            // de vuelta al inicio: la pantalla se encoge hacia su ícono del dock
+                            targetState == "home" && initialState in dockScreens ->
+                                ((scaleIn(tween(340), initialScale = 0.9f) + fadeIn(tween(280)))
+                                    .togetherWith(scaleOut(tween(300), targetScale = 0.12f, transformOrigin = o) + fadeOut(tween(260))))
+                                    .apply { targetContentZIndex = -1f }
+                            targetState == "home" ->
+                                (fadeIn(tween(260)) + scaleIn(tween(320), initialScale = 0.94f))
+                                    .togetherWith(slideOutHorizontally(tween(260)) { it / 3 } + fadeOut(tween(200)))
+                            else ->
+                                (slideInHorizontally(spec) { it / 3 } + fadeIn(tween(260)))
+                                    .togetherWith(fadeOut(tween(200)) + scaleOut(tween(260), targetScale = 0.94f))
                         }
                     },
                     label = "nav"
@@ -219,6 +238,34 @@ fun NioroApp(resumeTick: Int) {
                             onGo = { screen = it },
                             onMenu = { showSettings = true }
                         )
+                    }
+                }
+                AnimatedVisibility(
+                    visible = screen == "home",
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = slideInVertically(spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessLow)) { it } + fadeIn(tween(250)),
+                    exit = slideOutVertically(tween(260)) { it } + fadeOut(tween(200))
+                ) {
+                    val pendingItems = lists.sumOf { l -> l.items.count { !it.done } }
+                    val balance = monthSummary(tx, now).balance
+                    Dock(
+                        listOf(
+                            DockItem(
+                                "train", "Entreno", { DumbbellIcon() },
+                                badge = if (trainActive != null) "" else null, badgeColor = palette.income
+                            ),
+                            DockItem(
+                                "finance", "Finanzas", { CoinIcon() },
+                                badge = if (balance < 0) "!" else null, badgeColor = palette.expense
+                            ),
+                            DockItem(
+                                "lists", "Listas", { CheckIcon() },
+                                badge = if (pendingItems > 0) (if (pendingItems > 99) "99+" else "$pendingItems") else null
+                            )
+                        )
+                    ) { target, origin ->
+                        dockOrigin = origin
+                        screen = target
                     }
                 }
                 if (showSettings) {

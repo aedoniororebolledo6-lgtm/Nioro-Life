@@ -60,7 +60,7 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   back; tap "=Guardar" 2; look 06_finanzas_noche
   back; look 07_home_con_saldo
 
-  tap "=Entrenamiento" 3; look 40_entreno
+  tap "=Entreno" 3; look 40_entreno
   tap "=Ejercicios" 2; look 41_ejercicios
   type_in "Buscar ejercicio" "press"; look 41b_buscar; back
   tap "=Timer" 2; look 42_timer
