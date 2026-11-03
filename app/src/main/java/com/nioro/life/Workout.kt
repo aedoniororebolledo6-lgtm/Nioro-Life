@@ -4,7 +4,6 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
-import kotlin.math.floor
 import kotlin.math.roundToInt
 
 /** Tipos de serie, como en Hevy/Strong: normal, calentamiento, drop set y al fallo. */
@@ -84,16 +83,23 @@ fun workoutVolume(w: Workout): Double = w.entries.sumOf { e -> e.sets.sumOf { se
 
 fun workoutDoneSets(w: Workout): Int = w.entries.sumOf { e -> e.sets.count { it.done } }
 
+/** 82.5 → "82,5", 80.0 → "80", 2.3 → "2,3" (sin ceros de más por errores de redondeo). */
 fun fmtKg(v: Double): String {
-    val r = (v * 100).roundToInt() / 100.0
-    return if (r == floor(r)) "%.0f".format(r) else if ((r * 10) == floor(r * 10)) "%.1f".format(r) else "%.2f".format(r)
+    val cents = (v * 100).roundToInt()
+    val neg = cents < 0
+    val a = kotlin.math.abs(cents)
+    val ent = a / 100
+    val dec = a % 100
+    val txt = when {
+        dec == 0 -> "$ent"
+        dec % 10 == 0 -> "$ent,${dec / 10}"
+        else -> "$ent,%02d".format(dec)
+    }
+    return if (neg) "-$txt" else txt
 }
 
-fun fmtVolume(v: Double): String = when {
-    v >= 1_000_000 -> "%.1f t".format(v / 1000.0)
-    v >= 10_000 -> "%.1f t".format(v / 1000.0)
-    else -> "${fmtKg(v)} kg"
-}
+fun fmtVolume(v: Double): String =
+    if (v >= 10_000) "${fmtKg(Math.round(v / 100.0) / 10.0)} t" else "${fmtKg(Math.round(v).toDouble())} kg"
 
 fun fmtClock(sec: Long): String {
     val s = maxOf(0L, sec)
@@ -215,7 +221,8 @@ fun workoutFromRoutine(rt: Routine?, history: List<Workout>, now: Long, defaultR
             exId = it.exId,
             sets = List(it.sets) { i ->
                 val p = prev.getOrNull(i) ?: prev.lastOrNull()
-                SetLog(reps = p?.reps ?: it.reps, kg = p?.kg ?: 0.0, done = false)
+                // reps (o segundos) = el objetivo de la rutina; el peso = el que usaste la última vez
+                SetLog(reps = it.reps, kg = p?.kg ?: 0.0, done = false)
             },
             restSec = if (it.restSec > 0) it.restSec else defaultRest,
             uid = idx + 1L
@@ -336,6 +343,11 @@ object TrainStore {
             a.put(JSONObject().put("id", it.id).put("name", it.name).put("m", it.muscle).put("e", it.equip).put("t", it.type).put("tip", it.tip))
         }
         prefs(c).edit().putString("custom", a.toString()).apply()
+    }
+
+    fun loadRest(c: Context): Pair<Long, Int> = prefs(c).let { it.getLong("restEnd", 0L) to it.getInt("restTotal", 0) }
+    fun saveRest(c: Context, end: Long, total: Int) {
+        prefs(c).edit().putLong("restEnd", end).putInt("restTotal", total).apply()
     }
 
     fun loadFavs(c: Context): Set<String> = prefs(c).getStringSet("favs", emptySet())?.toSet() ?: emptySet()

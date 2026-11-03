@@ -137,17 +137,16 @@ fun ActiveWorkoutScreen(
     custom: List<Exercise>,
     favs: Set<String>,
     cfg: TrainCfg,
+    restEnd: Long,
+    restTotal: Int,
+    onRest: (Long, Int) -> Unit,
     onChange: (Workout) -> Unit,
     onFinish: (Workout) -> Unit,
     onDiscard: () -> Unit,
     onMinimize: () -> Unit
 ) {
     val p = LocalPalette.current
-    val ctx = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var restEnd by remember { mutableLongStateOf(0L) }
-    var restTotal by remember { mutableIntStateOf(0) }
     var picking by remember { mutableStateOf(false) }
     var confirmFinish by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
@@ -156,31 +155,9 @@ fun ActiveWorkoutScreen(
 
     KeepScreenOn()
     BackHandler { onMinimize() }
-    LaunchedEffect(Unit) {
-        while (true) {
-            now = System.currentTimeMillis()
-            delay(250)
-        }
-    }
-    // Cuenta regresiva del descanso: pitido en los últimos 3 segundos y alarma al terminar.
-    LaunchedEffect(restEnd) {
-        if (restEnd == 0L) return@LaunchedEffect
-        var lastSec = -1L
-        while (true) {
-            val left = restEnd - System.currentTimeMillis()
-            if (left <= 0) {
-                Buzz.finish(ctx, cfg)
-                restEnd = 0L
-                break
-            }
-            val sec = (left + 999) / 1000
-            if (sec <= 3 && sec != lastSec) {
-                Buzz.tick(ctx, cfg)
-                lastSec = sec
-            }
-            delay(100)
-        }
-    }
+    // "Anterior" de cada ejercicio: se calcula una vez por historial, no en cada redibujo
+    val prevCache = remember(history) { HashMap<String, List<SetLog>>() }
+    fun prevOf(id: String) = prevCache.getOrPut(id) { lastSetsFor(id, history) }
 
     val volume = workoutVolume(workout)
     val doneSets = workoutDoneSets(workout)
@@ -205,10 +182,8 @@ fun ActiveWorkoutScreen(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     GlowText(workout.name, 20.sp)
-                    Text(
-                        "⏱ ${fmtClock((now - workout.start) / 1000)}  ·  ${fmtVolume(volume)}  ·  $doneSets/$totalSets series",
-                        color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1
-                    )
+                    // el reloj se redibuja solo, sin redibujar toda la lista
+                    WorkoutClock(workout.start, "  ·  ${fmtVolume(volume)}  ·  $doneSets/$totalSets series")
                 }
                 Spacer(Modifier.width(8.dp))
                 DialogButton("Terminar", true, Modifier.width(108.dp)) { confirmFinish = true }
@@ -245,10 +220,12 @@ fun ActiveWorkoutScreen(
                 }
                 itemsIndexed(workout.entries, key = { _, e -> e.uid }) { idx, e ->
                     val ex = exerciseById(e.exId, custom)
+                    // una superserie necesita un ejercicio siguiente; si se borró, el último vuelve a descansar
+                    val linked = e.linked && idx < workout.entries.size - 1
                     val prevLinked = idx > 0 && workout.entries[idx - 1].linked
                     EntryCard(
-                        e, ex, prev = lastSetsFor(e.exId, history), inSuperset = e.linked || prevLinked,
-                        modifier = Modifier.animateItem().rise(idx),
+                        e, ex, prev = prevOf(e.exId), inSuperset = linked || prevLinked, linked = linked,
+                        modifier = Modifier.animateItem(),
                         onInfo = { infoFor = e.exId },
                         onMenu = { menuFor = e.uid },
                         onRest = {
@@ -260,9 +237,8 @@ fun ActiveWorkoutScreen(
                             update(e.uid) { it.copy(sets = it.sets.mapIndexed { j, old -> if (j == si) s else old }) }
                             if (s.done && !was) {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                if (!e.linked && e.restSec > 0) {
-                                    restTotal = e.restSec
-                                    restEnd = System.currentTimeMillis() + e.restSec * 1000L
+                                if (!linked && e.restSec > 0) {
+                                    onRest(System.currentTimeMillis() + e.restSec * 1000L, e.restSec)
                                 }
                             }
                         },
@@ -292,14 +268,7 @@ fun ActiveWorkoutScreen(
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut()
         ) {
-            val left = maxOf(0L, restEnd - now)
-            val frac = if (restTotal > 0) (left / 1000f / restTotal).coerceIn(0f, 1f) else 0f
-            RestBar(
-                left / 1000, frac,
-                onMinus = { restEnd = maxOf(System.currentTimeMillis() + 1000, restEnd - 15_000) },
-                onPlus = { restEnd += 15_000; restTotal += 15 },
-                onSkip = { restEnd = 0L }
-            )
+            RestBarLive(restEnd, restTotal, onRest)
         }
     }
 
@@ -307,7 +276,7 @@ fun ActiveWorkoutScreen(
         ExercisePickerDialog(custom, favs, onDismiss = { picking = false }) { ids ->
             var next = (workout.entries.maxOfOrNull { it.uid } ?: 0L) + 1
             val add = ids.map { id ->
-                val prev = lastSetsFor(id, history)
+                val prev = prevOf(id)
                 val ex = exerciseById(id, custom)
                 val baseReps = if (ex?.type == EX_TIME) 30 else 10
                 LogEntry(
@@ -384,6 +353,7 @@ private fun EntryCard(
     ex: Exercise?,
     prev: List<SetLog>,
     inSuperset: Boolean,
+    linked: Boolean,
     modifier: Modifier,
     onInfo: () -> Unit,
     onMenu: () -> Unit,
@@ -419,7 +389,7 @@ private fun EntryCard(
                         .padding(horizontal = 9.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        if (e.linked) "🔗 sin pausa" else "⏱ ${fmtClock(e.restSec.toLong())}",
+                        if (linked) "🔗 sin pausa" else "⏱ ${fmtClock(e.restSec.toLong())}",
                         color = p.title, fontSize = 12.sp, fontWeight = FontWeight.Bold
                     )
                 }
@@ -568,6 +538,33 @@ fun SmallButton(label: String, modifier: Modifier = Modifier, onClick: () -> Uni
             .border(1.dp, p.chipBorder, RoundedCornerShape(14.dp)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { Text(label, color = p.title, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold) }
+}
+
+/** Tiempo transcurrido del entrenamiento; se actualiza solo una vez por segundo. */
+@Composable
+private fun WorkoutClock(start: Long, suffix: String) {
+    val p = LocalPalette.current
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(start) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
+    Text(
+        "⏱ ${fmtClock((now - start) / 1000)}$suffix",
+        color = p.muted, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1
+    )
+}
+
+/** Barra del descanso con su propio reloj (el pitido lo da TrainScreen, aunque minimices). */
+@Composable
+private fun RestBarLive(restEnd: Long, restTotal: Int, onRest: (Long, Int) -> Unit) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(100) } }
+    val left = maxOf(0L, restEnd - now)
+    val frac = if (restTotal > 0) (left / 1000f / restTotal).coerceIn(0f, 1f) else 0f
+    RestBar(
+        (left + 999) / 1000, frac,
+        onMinus = { onRest(maxOf(System.currentTimeMillis() + 1000, restEnd - 15_000), restTotal) },
+        onPlus = { onRest(restEnd + 15_000, restTotal + 15) },
+        onSkip = { onRest(0L, 0) }
+    )
 }
 
 @Composable

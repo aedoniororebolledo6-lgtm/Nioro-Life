@@ -63,6 +63,17 @@ class TrainingTest {
     }
 
     @Test
+    fun formatoDeKilos() {
+        assertEquals("80", fmtKg(80.0))
+        assertEquals("82,5", fmtKg(82.5))
+        assertEquals("2,3", fmtKg(2.3))
+        assertEquals("1,25", fmtKg(1.25))
+        assertEquals("-2,5", fmtKg(-2.5))
+        assertEquals("12,5 t", fmtVolume(12_480.0))
+        assertEquals("950 kg", fmtVolume(950.0))
+    }
+
+    @Test
     fun rutinaPreparaSeriesConLoAnterior() {
         val rt = PRESET_ROUTINES.first { it.items.any { i -> i.exId == "bench" } }
         val hist = listOf(Workout(1, "A", 0, 1, listOf(LogEntry("bench", listOf(SetLog(6, 70.0, true)), 90))))
@@ -70,6 +81,8 @@ class TrainingTest {
         val bench = w.entries.first { it.exId == "bench" }
         assertEquals(rt.items.first { it.exId == "bench" }.sets, bench.sets.size)
         assertEquals(70.0, bench.sets[0].kg, 1e-9)
+        // las reps son el objetivo de la rutina, no las de la última vez
+        assertEquals(rt.items.first { it.exId == "bench" }.reps, bench.sets[0].reps)
         assertTrue(bench.sets.none { it.done })
         assertEquals(w.entries.size, w.entries.map { it.uid }.toSet().size)
     }

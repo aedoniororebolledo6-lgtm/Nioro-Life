@@ -72,8 +72,6 @@ import java.util.Locale
 
 // ---------------------------------------------------------------- INICIO
 
-/** Lo que el inicio muestra del entrenamiento. */
-data class TrainSummary(val daysWeek: Int, val goal: Int, val streak: Int, val active: Workout?, val total: Int)
 
 @Composable
 fun HomeScreen(
@@ -83,7 +81,6 @@ fun HomeScreen(
     cobros: List<Cobro>,
     lists: List<CheckList>,
     now: Long,
-    train: TrainSummary,
     onGo: (String) -> Unit,
     onMenu: () -> Unit
 ) {
@@ -114,7 +111,6 @@ fun HomeScreen(
     val nextRem = notes
         .filter { !it.done && it.remindAt != null && (it.remindAt ?: 0L) > now }
         .minByOrNull { it.remindAt ?: Long.MAX_VALUE }
-    val sum = monthSummary(tx, now)
 
     Column(
         Modifier
@@ -220,7 +216,7 @@ fun HomeScreen(
             }
         }
         // espacio para que el dock flotante no tape el contenido
-        Spacer(Modifier.height(118.dp))
+        Spacer(Modifier.height(132.dp))
     }
 }
 
