@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -71,6 +72,9 @@ import java.util.Locale
 
 // ---------------------------------------------------------------- INICIO
 
+/** Lo que el inicio muestra del entrenamiento. */
+data class TrainSummary(val daysWeek: Int, val goal: Int, val streak: Int, val active: Workout?, val total: Int)
+
 @Composable
 fun HomeScreen(
     settings: Settings,
@@ -79,10 +83,21 @@ fun HomeScreen(
     cobros: List<Cobro>,
     lists: List<CheckList>,
     now: Long,
+    train: TrainSummary,
     onGo: (String) -> Unit,
     onMenu: () -> Unit
 ) {
     val p = LocalPalette.current
+    // el anillo se "dibuja" al abrir la app y su punta brilla suavemente
+    val ringIntro = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        ringIntro.animateTo(1f, androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+    }
+    val tipPulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "tip").animateFloat(
+        0.35f, 1f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1400), androidx.compose.animation.core.RepeatMode.Reverse),
+        label = "tipA"
+    )
     val st = computeSleep(settings, now)
     val totalSec = maxOf(0L, (st.targetMs - now) / 1000)
     val h = totalSec / 3600
@@ -109,7 +124,7 @@ fun HomeScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
-        Row(Modifier.padding(start = 6.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(start = 6.dp, bottom = 12.dp).rise(0), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(R.mipmap.ic_launcher),
                 contentDescription = "Menú",
@@ -129,7 +144,7 @@ fun HomeScreen(
             }
         }
 
-        Glass(Modifier.fillMaxWidth(), onClick = { onGo("clock") }) {
+        Glass(Modifier.fillMaxWidth().rise(1), onClick = { onGo("clock") }) {
             Column(
                 Modifier.fillMaxWidth().padding(vertical = 20.dp, horizontal = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -145,9 +160,16 @@ fun HomeScreen(
                         val sz = Size(size.width - stroke, size.height - stroke)
                         drawMoon(p, 0.66f)
                         drawArc(p.track, 0f, 360f, false, tl, sz, style = Stroke(stroke))
-                        if (frac > 0f) {
-                            drawArc(p.accent.copy(alpha = 0.22f), -90f, 360f * frac, false, tl, sz, style = Stroke(stroke + 12f, cap = StrokeCap.Round))
-                            drawArc(p.accent, -90f, 360f * frac, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
+                        val f = frac * ringIntro.value
+                        if (f > 0f) {
+                            drawArc(p.accent.copy(alpha = 0.22f), -90f, 360f * f, false, tl, sz, style = Stroke(stroke + 12f, cap = StrokeCap.Round))
+                            drawArc(p.accent, -90f, 360f * f, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
+                            // punta luminosa del anillo
+                            val ang = Math.toRadians((-90.0 + 360.0 * f))
+                            val rr = sz.width / 2
+                            val c = Offset(tl.x + rr + (rr * kotlin.math.cos(ang)).toFloat(), tl.y + rr + (rr * kotlin.math.sin(ang)).toFloat())
+                            drawCircle(p.accent.copy(alpha = 0.35f * tipPulse), stroke * 1.6f, c)
+                            drawCircle(p.title.copy(alpha = 0.9f), stroke * 0.42f, c)
                         }
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -173,7 +195,7 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(Modifier.fillMaxWidth().rise(2), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Tile(Modifier.weight(1f), "Reloj", "${fmtTime(settings.bedMin)} → ${fmtTime(settings.wakeMin)}", { ClockIcon() }) { onGo("clock") }
             Tile(
                 Modifier.weight(1f), "Notas",
@@ -183,7 +205,41 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(14.dp))
-        Glass(Modifier.fillMaxWidth(), onClick = { onGo("finance") }) {
+        Glass(Modifier.fillMaxWidth().rise(3), onClick = { onGo("train") }) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconBadge { DumbbellIcon() }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    GlowText("Entrenamiento", 19.sp)
+                    val a = train.active
+                    Text(
+                        when {
+                            a != null -> "En curso: ${a.name} · ${fmtClock((now - a.start) / 1000)}"
+                            train.total == 0 -> "${EXERCISES.size} ejercicios · rutinas · temporizador"
+                            else -> "${train.daysWeek}/${train.goal} días esta semana" + (if (train.streak > 0) " · 🔥 ${train.streak}" else "")
+                        },
+                        color = if (a != null) p.income else p.muted,
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (train.total > 0 && train.active == null) {
+                    // mini barras de la semana
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
+                        repeat(train.goal.coerceIn(1, 7)) { i ->
+                            Box(
+                                Modifier.width(6.dp).height(20.dp).clip(RoundedCornerShape(3.dp))
+                                    .background(if (i < train.daysWeek) p.accent else p.track)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
+                ForwardIcon()
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Glass(Modifier.fillMaxWidth().rise(4), onClick = { onGo("finance") }) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBadge { CoinIcon() }
                 Spacer(Modifier.width(14.dp))
@@ -202,7 +258,7 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(14.dp))
-        Glass(Modifier.fillMaxWidth(), onClick = { onGo("lists") }) {
+        Glass(Modifier.fillMaxWidth().rise(5), onClick = { onGo("lists") }) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBadge { CheckIcon() }
                 Spacer(Modifier.width(14.dp))
@@ -223,7 +279,7 @@ fun HomeScreen(
 
         if (nextRem != null) {
             Spacer(Modifier.height(14.dp))
-            Glass(Modifier.fillMaxWidth(), radius = 24.dp) {
+            Glass(Modifier.fillMaxWidth().rise(6), radius = 24.dp) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(p.accent))
                     Spacer(Modifier.width(12.dp))
