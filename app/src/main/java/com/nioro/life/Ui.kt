@@ -1,6 +1,10 @@
 package com.nioro.life
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -26,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -42,6 +47,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -61,7 +68,12 @@ fun Glass(
     val shape = RoundedCornerShape(radius)
     val src = remember { MutableInteractionSource() }
     val pressed by src.collectIsPressedAsState()
-    val sc by animateFloatAsState(if (pressed && onClick != null) 0.96f else 1f, label = "press")
+    val haptic = LocalHapticFeedback.current
+    val sc by animateFloatAsState(
+        if (pressed && onClick != null) 0.955f else 1f,
+        spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+        label = "press"
+    )
     Box(
         modifier
             .graphicsLayer {
@@ -83,11 +95,35 @@ fun Glass(
             .border(1.dp, Brush.verticalGradient(listOf(p.borderTop, p.borderBottom)), shape)
             .then(
                 if (onClick != null)
-                    Modifier.clickable(interactionSource = src, indication = null, onClick = onClick)
+                    Modifier.clickable(interactionSource = src, indication = null) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onClick()
+                    }
                 else Modifier
             ),
         content = content
     )
+}
+
+/**
+ * Entrada animada: el elemento aparece subiendo y aclarándose, con un pequeño retraso
+ * según su posición (efecto "cascada" al abrir una pantalla).
+ */
+@Composable
+fun Modifier.rise(index: Int = 0): Modifier {
+    val a = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(45L * index)
+        a.animateTo(1f, spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessLow))
+    }
+    return this.graphicsLayer {
+        val v = a.value
+        alpha = v.coerceIn(0f, 1f)
+        translationY = (1f - v) * 36.dp.toPx()
+        val sc = 0.94f + 0.06f * v
+        scaleX = sc
+        scaleY = sc
+    }
 }
 
 @Composable
@@ -129,10 +165,14 @@ fun IconBadge(content: @Composable BoxScope.() -> Unit) {
 fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
     val p = LocalPalette.current
     val shape = RoundedCornerShape(16.dp)
+    val bg by animateColorAsState(if (selected) p.accentSoft else p.chipBg, tween(220), label = "chipBg")
+    val bd by animateColorAsState(if (selected) p.accent else p.chipBorder, tween(220), label = "chipBd")
+    val sc by animateFloatAsState(if (selected) 1.04f else 1f, spring(dampingRatio = 0.5f), label = "chipSc")
     Box(
-        Modifier.clip(shape)
-            .background(if (selected) p.accentSoft else p.chipBg)
-            .border(1.dp, if (selected) p.accent else p.chipBorder, shape)
+        Modifier.graphicsLayer { scaleX = sc; scaleY = sc }
+            .clip(shape)
+            .background(bg)
+            .border(1.dp, bd, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp)
     ) {
@@ -144,14 +184,17 @@ fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
 fun DialogButton(label: String, main: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val p = LocalPalette.current
     val shape = RoundedCornerShape(20.dp)
+    val src = remember { MutableInteractionSource() }
+    val pressed by src.collectIsPressedAsState()
+    val sc by animateFloatAsState(if (pressed) 0.95f else 1f, spring(dampingRatio = 0.5f), label = "btn")
     Box(
-        modifier.height(52.dp).clip(shape)
+        modifier.height(52.dp).graphicsLayer { scaleX = sc; scaleY = sc }.clip(shape)
             .background(
                 if (main) Brush.verticalGradient(p.btnMain)
                 else Brush.verticalGradient(listOf(p.chipBg, p.chipBg))
             )
             .border(1.dp, if (main) p.btnMainBorder else p.chipBorder, shape)
-            .clickable(onClick = onClick),
+            .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = if (main) p.onBtnMain else p.title, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
@@ -363,5 +406,21 @@ fun CloseIcon(dp: Dp = 14.dp, color: Color = LocalPalette.current.muted) {
         val sw = w * 0.14f
         drawLine(color, Offset(w * 0.15f, w * 0.15f), Offset(w * 0.85f, w * 0.85f), sw, StrokeCap.Round)
         drawLine(color, Offset(w * 0.85f, w * 0.15f), Offset(w * 0.15f, w * 0.85f), sw, StrokeCap.Round)
+    }
+}
+
+/** Pesa (mancuerna) para la sección de entrenamiento. */
+@Composable
+fun DumbbellIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {
+    Canvas(Modifier.size(dp)) {
+        val w = size.minDimension
+        val sw = w * 0.075f
+        val cr = androidx.compose.ui.geometry.CornerRadius(w * 0.04f)
+        drawLine(color, Offset(w * 0.3f, w * 0.5f), Offset(w * 0.7f, w * 0.5f), sw, StrokeCap.Round)
+        for (x in listOf(w * 0.17f, w * 0.71f)) {
+            drawRoundRect(color, Offset(x, w * 0.3f), androidx.compose.ui.geometry.Size(w * 0.12f, w * 0.4f), cr, style = Stroke(sw))
+        }
+        drawLine(color, Offset(w * 0.08f, w * 0.42f), Offset(w * 0.08f, w * 0.58f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.92f, w * 0.42f), Offset(w * 0.92f, w * 0.58f), sw, StrokeCap.Round)
     }
 }

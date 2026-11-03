@@ -12,7 +12,17 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -73,6 +83,9 @@ fun NioroApp(resumeTick: Int) {
     var cobros by remember { mutableStateOf(Store.loadCobros(ctx)) }
     var lists by remember { mutableStateOf(Store.loadLists(ctx)) }
     var history by remember { mutableStateOf(Store.loadHistory(ctx)) }
+    var trainHistory by remember { mutableStateOf(TrainStore.loadHistory(ctx)) }
+    var trainActive by remember { mutableStateOf(TrainStore.loadActive(ctx)) }
+    var trainCfg by remember { mutableStateOf(TrainStore.loadCfg(ctx)) }
     var screen by remember { mutableStateOf("home") }
     var showSettings by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -85,13 +98,21 @@ fun NioroApp(resumeTick: Int) {
         lists = Store.loadLists(ctx)
         history = Store.loadHistory(ctx)
     }
+    // al volver al inicio, refresca el resumen de entrenamiento
+    LaunchedEffect(screen, resumeTick) {
+        if (screen == "home") {
+            trainHistory = TrainStore.loadHistory(ctx)
+            trainActive = TrainStore.loadActive(ctx)
+            trainCfg = TrainStore.loadCfg(ctx)
+        }
+    }
     LaunchedEffect(Unit) {
         while (true) {
             now = System.currentTimeMillis()
             delay(1000)
         }
     }
-    BackHandler(enabled = screen != "home") { screen = "home" }
+    BackHandler(enabled = screen != "home" && screen != "train") { screen = "home" }
 
     val palette = paletteFor(settings.theme)
 
@@ -164,11 +185,26 @@ fun NioroApp(resumeTick: Int) {
         MaterialTheme(colorScheme = scheme) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(palette.bg))) {
                 Ambient()
-                Crossfade(targetState = screen, label = "nav") { s ->
+                AnimatedContent(
+                    targetState = screen,
+                    transitionSpec = {
+                        val goingHome = targetState == "home"
+                        val spec = spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)
+                        if (goingHome) {
+                            (fadeIn(tween(260)) + scaleIn(tween(320), initialScale = 0.94f))
+                                .togetherWith(slideOutHorizontally(tween(260)) { it / 3 } + fadeOut(tween(200)))
+                        } else {
+                            (slideInHorizontally(spec) { it / 3 } + fadeIn(tween(260)))
+                                .togetherWith(fadeOut(tween(200)) + scaleOut(tween(260), targetScale = 0.94f))
+                        }
+                    },
+                    label = "nav"
+                ) { s ->
                     when (s) {
                         "clock" -> ClockScreen(settings, updateSettings) { screen = "home" }
                         "notes" -> NotesScreen(notes, saveNote, deleteNote) { screen = "home" }
                         "finance" -> FinanceScreen(tx, cobros, saveTx, deleteTx, saveCobro, deleteCobro) { screen = "home" }
+                        "train" -> TrainScreen { screen = "home" }
                         "lists" -> ListsScreen(
                             lists, history,
                             onHistory = { h -> history = h; Store.saveHistory(ctx, h) },
@@ -176,6 +212,10 @@ fun NioroApp(resumeTick: Int) {
                         ) { screen = "home" }
                         else -> HomeScreen(
                             settings, notes, tx, cobros, lists, now,
+                            TrainSummary(
+                                daysThisWeek(trainHistory, now), trainCfg.weeklyGoal,
+                                weekStreak(trainHistory, trainCfg.weeklyGoal, now), trainActive, trainHistory.size
+                            ),
                             onGo = { screen = it },
                             onMenu = { showSettings = true }
                         )

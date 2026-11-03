@@ -60,6 +60,16 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   back; tap "=Guardar" 2; look 06_finanzas_noche
   back; look 07_home_con_saldo
 
+  tap "=Entrenamiento" 3; look 40_entreno
+  tap "=Ejercicios" 2; look 41_ejercicios
+  type_in "Buscar ejercicio" "press"; look 41b_buscar; back
+  tap "=Timer" 2; look 42_timer
+  tap "=Empezar" 3; look 42b_timer_corriendo
+  tap "=Progreso" 2; look 43_progreso
+  tap "=Entrenar" 2; tap "=Entrenamiento libre" 3; look 44_libre
+  tap "+ Añadir ejercicio" 2; tap "=Flexiones" 1; tap "Añadir 1" 2; look 45_con_ejercicio
+  back; back; look 46_home_tras_entreno
+
   timeout 60 adb shell am start -W -n $P/.MainActivity > /dev/null 2>&1; sleep 5
   tap "Men" 3; look 08_menu_noche
   tap "=Día"; look 09_menu_dia
