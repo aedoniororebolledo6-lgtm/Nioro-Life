@@ -103,6 +103,13 @@ fun TrainScreen(onBack: () -> Unit) {
     var showActive by remember { mutableStateOf(active != null) }
     var tab by remember { mutableIntStateOf(0) }
     var summary by remember { mutableStateOf<Pair<Workout, List<String>>?>(null) }
+    val timer = remember { IntervalTimer() }
+    // descanso entre series: se guarda para no perderlo al minimizar o salir de la sección
+    var rest by remember { mutableStateOf(TrainStore.loadRest(ctx)) }
+    val setRest: (Long, Int) -> Unit = { end, total -> rest = end to total; TrainStore.saveRest(ctx, end, total) }
+
+    IntervalEngine(timer, cfg)
+    RestEngine(rest.first, cfg) { setRest(0L, 0) }
 
     val setActive: (Workout?) -> Unit = { w -> active = w; TrainStore.saveActive(ctx, w) }
     val start: (Routine?) -> Unit = { rt ->
@@ -122,17 +129,19 @@ fun TrainScreen(onBack: () -> Unit) {
     if (aw != null && showActive) {
         ActiveWorkoutScreen(
             aw, history, custom, favs, cfg,
+            restEnd = rest.first, restTotal = rest.second, onRest = setRest,
             onChange = setActive,
             onFinish = { done ->
                 val prs = newRecords(done, history, custom)
                 history = history + done
                 TrainStore.saveHistory(ctx, history)
                 setActive(null)
+                setRest(0L, 0)
                 showActive = false
                 tab = 0
                 summary = done to prs
             },
-            onDiscard = { setActive(null); showActive = false },
+            onDiscard = { setActive(null); setRest(0L, 0); showActive = false },
             onMinimize = { showActive = false }
         )
         return
@@ -195,7 +204,7 @@ fun TrainScreen(onBack: () -> Unit) {
                         TrainStore.saveCustom(ctx, custom)
                     }
                 )
-                2 -> TimerTab(cfg) { c -> cfg = c; TrainStore.saveCfg(ctx, c) }
+                2 -> TimerTab(timer, cfg) { c -> cfg = c; TrainStore.saveCfg(ctx, c) }
                 else -> ProgressTab(
                     history, custom, cfg, body,
                     onBody = { b -> body = b; TrainStore.saveBody(ctx, b) },
@@ -826,7 +835,7 @@ private fun CustomExerciseDialog(onDismiss: () -> Unit, onSave: (Exercise) -> Un
 
 // ---------------------------------------------------------------- TEMPORIZADOR
 
-private data class Phase(val label: String, val secs: Int, val work: Boolean)
+internal data class Phase(val label: String, val secs: Int, val work: Boolean)
 
 private val TIMER_MODES = listOf("Tabata", "EMOM", "HIIT", "Cronómetro")
 
@@ -846,60 +855,101 @@ private fun buildPhases(mode: Int, work: Int, rest: Int, rounds: Int): List<Phas
     return out
 }
 
-@Composable
-private fun TimerTab(cfg: TrainCfg, onCfg: (TrainCfg) -> Unit) {
-    val p = LocalPalette.current
-    val ctx = LocalContext.current
-    var mode by remember { mutableIntStateOf(0) }
-    var work by remember { mutableIntStateOf(40) }
-    var rest by remember { mutableIntStateOf(20) }
-    var rounds by remember { mutableIntStateOf(8) }
-    var running by remember { mutableStateOf(false) }
-    var acc by remember { mutableLongStateOf(0L) }
-    var since by remember { mutableLongStateOf(0L) }
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    val laps = remember { mutableStateListOf<Long>() }
-    val phases = remember(mode, work, rest, rounds) { buildPhases(mode, work, rest, rounds) }
-    val total = phases.sumOf { it.secs } * 1000L
-    val elapsed = acc + if (running) now - since else 0L
+/** Estado del temporizador de intervalos; vive en TrainScreen para no perderse al cambiar de pestaña. */
+class IntervalTimer {
+    var mode by mutableIntStateOf(0)
+    var work by mutableIntStateOf(40)
+    var rest by mutableIntStateOf(20)
+    var rounds by mutableIntStateOf(8)
+    var running by mutableStateOf(false)
+    var acc by mutableLongStateOf(0L)
+    var since by mutableLongStateOf(0L)
+    val laps = mutableStateListOf<Long>()
 
-    if (running) KeepScreenOn()
-    LaunchedEffect(running) {
-        while (running) { now = System.currentTimeMillis(); delay(50) }
-    }
+    internal fun phases() = buildPhases(mode, work, rest, rounds)
+    fun elapsed(now: Long) = acc + if (running) now - since else 0L
+    fun reset() { running = false; acc = 0L; laps.clear() }
+}
 
-    // ¿en qué fase vamos?
+/** Índice de la fase en curso y el momento (ms) en que empezó. */
+private fun phaseAt(phases: List<Phase>, elapsed: Long): Pair<Int, Long> {
     var idx = 0
     var startOf = 0L
-    if (mode != 3) {
-        while (idx < phases.size && elapsed >= startOf + phases[idx].secs * 1000L) { startOf += phases[idx].secs * 1000L; idx++ }
+    while (idx < phases.size && elapsed >= startOf + phases[idx].secs * 1000L) { startOf += phases[idx].secs * 1000L; idx++ }
+    return idx to startOf
+}
+
+/** Pitidos del temporizador: cambio de fase, últimos 3 segundos y final. */
+@Composable
+fun IntervalEngine(t: IntervalTimer, cfg: TrainCfg) {
+    val ctx = LocalContext.current
+    if (t.running) KeepScreenOn()
+    LaunchedEffect(t.running, t.mode) {
+        if (!t.running || t.mode == 3) return@LaunchedEffect
+        val phases = t.phases()
+        val total = phases.sumOf { it.secs } * 1000L
+        var lastIdx = -1
+        var lastSec = -1L
+        while (t.running) {
+            val e = t.elapsed(System.currentTimeMillis())
+            val (idx, startOf) = phaseAt(phases, e)
+            if (idx >= phases.size) {
+                Buzz.finish(ctx, cfg)
+                t.acc = total
+                t.running = false
+                break
+            }
+            if (lastIdx != -1 && idx != lastIdx) Buzz.phase(ctx, cfg)
+            val sec = (phases[idx].secs * 1000L - (e - startOf) + 999) / 1000
+            if (sec in 1..3 && sec != lastSec && idx == lastIdx) Buzz.tick(ctx, cfg)
+            lastIdx = idx
+            lastSec = sec
+            delay(50)
+        }
     }
-    val finished = mode != 3 && idx >= phases.size
+}
+
+/** Pitidos del descanso entre series: sigue sonando aunque minimices el entrenamiento. */
+@Composable
+fun RestEngine(restEnd: Long, cfg: TrainCfg, onDone: () -> Unit) {
+    val ctx = LocalContext.current
+    LaunchedEffect(restEnd) {
+        if (restEnd == 0L) return@LaunchedEffect
+        // un descanso que ya terminó hace rato (p. ej. al volver a la app) se borra sin sonar
+        if (restEnd - System.currentTimeMillis() < -2000) { onDone(); return@LaunchedEffect }
+        var lastSec = -1L
+        while (true) {
+            val left = restEnd - System.currentTimeMillis()
+            if (left <= 0) { Buzz.finish(ctx, cfg); onDone(); break }
+            val sec = (left + 999) / 1000
+            if (sec <= 3 && sec != lastSec) { Buzz.tick(ctx, cfg); lastSec = sec }
+            delay(100)
+        }
+    }
+}
+
+@Composable
+private fun TimerTab(t: IntervalTimer, cfg: TrainCfg, onCfg: (TrainCfg) -> Unit) {
+    val p = LocalPalette.current
+    // reloj solo para dibujar; los pitidos los da IntervalEngine, aunque cambies de pestaña
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(t.running) {
+        now = System.currentTimeMillis()
+        while (t.running) { now = System.currentTimeMillis(); delay(50) }
+    }
+    val phases = remember(t.mode, t.work, t.rest, t.rounds) { t.phases() }
+    val total = phases.sumOf { it.secs } * 1000L
+    val elapsed = t.elapsed(now)
+    val (idx, startOf) = if (t.mode != 3) phaseAt(phases, elapsed) else (0 to 0L)
+    val finished = t.mode != 3 && idx >= phases.size
     val ph = phases.getOrNull(idx)
     val phLeft = if (ph != null) ph.secs * 1000L - (elapsed - startOf) else 0L
     val phFrac = if (ph != null) (phLeft.toFloat() / (ph.secs * 1000f)).coerceIn(0f, 1f) else 0f
-
-    // sonidos: cambio de fase y los 3 últimos segundos
-    var lastIdx by remember { mutableIntStateOf(-1) }
-    var lastSec by remember { mutableLongStateOf(-1L) }
-    LaunchedEffect(idx, running) {
-        if (!running || mode == 3) return@LaunchedEffect
-        if (lastIdx != -1 && idx != lastIdx) {
-            if (idx >= phases.size) { Buzz.finish(ctx, cfg); running = false; acc = total } else Buzz.phase(ctx, cfg)
-        }
-        lastIdx = idx
-    }
     val secLeft = (phLeft + 999) / 1000
-    LaunchedEffect(secLeft, running) {
-        if (running && mode != 3 && secLeft in 1..3 && secLeft != lastSec) Buzz.tick(ctx, cfg)
-        lastSec = secLeft
-    }
-
-    fun reset() { running = false; acc = 0L; lastIdx = -1; laps.clear() }
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TIMER_MODES.forEachIndexed { i, m -> Chip(m, mode == i) { if (mode != i) { reset(); mode = i } } }
+            TIMER_MODES.forEachIndexed { i, m -> Chip(m, t.mode == i) { if (t.mode != i) { t.reset(); t.mode = i } } }
         }
         Spacer(Modifier.height(12.dp))
         Glass(Modifier.fillMaxWidth().rise(0)) {
@@ -907,7 +957,7 @@ private fun TimerTab(cfg: TrainCfg, onCfg: (TrainCfg) -> Unit) {
                 val workColor = p.income
                 val restColor = p.accent
                 val col = when {
-                    mode == 3 -> p.accent
+                    t.mode == 3 -> p.accent
                     finished -> p.accent
                     ph?.work == true -> workColor
                     else -> restColor
@@ -920,53 +970,53 @@ private fun TimerTab(cfg: TrainCfg, onCfg: (TrainCfg) -> Unit) {
                         val tl = Offset(sw / 2, sw / 2)
                         val sz = Size(size.width - sw, size.height - sw)
                         drawArc(p.track, 0f, 360f, false, tl, sz, style = Stroke(sw))
-                        val f = if (mode == 3) ((elapsed % 60_000L) / 60_000f) else if (finished) 1f else phFrac
-                        val glowA = if (running) 0.28f * breathe else 0.18f
+                        val f = if (t.mode == 3) ((elapsed % 60_000L) / 60_000f) else if (finished) 1f else phFrac
+                        val glowA = if (t.running) 0.28f * breathe else 0.18f
                         drawArc(col.copy(alpha = glowA), -90f, 360f * f, false, tl, sz, style = Stroke(sw + 14f, cap = StrokeCap.Round))
                         drawArc(col, -90f, 360f * f, false, tl, sz, style = Stroke(sw, cap = StrokeCap.Round))
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             when {
-                                mode == 3 -> "CRONÓMETRO"
+                                t.mode == 3 -> "CRONÓMETRO"
                                 finished -> "¡TERMINADO!"
                                 else -> ph?.label?.uppercase() ?: ""
                             },
                             color = col, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp
                         )
-                        val big = if (mode == 3) {
+                        val big = if (t.mode == 3) {
                             val cs = (elapsed / 10) % 100
                             fmtClock(elapsed / 1000) + ".%02d".format(cs)
                         } else if (finished) "🎉" else fmtClock(secLeft)
-                        GlowText(big, if (mode == 3) 40.sp else 54.sp)
-                        if (mode != 3 && !finished) {
+                        GlowText(big, if (t.mode == 3) 40.sp else 54.sp)
+                        if (t.mode != 3 && !finished) {
                             Text("Total ${fmtClock((total - elapsed).coerceAtLeast(0) / 1000)}", color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DialogButton(if (running) "Pausa" else if (elapsed > 0 && !finished) "Seguir" else "Empezar", true, Modifier.weight(1f)) {
-                        if (finished) reset()
-                        if (running) { acc += System.currentTimeMillis() - since; running = false }
-                        else { since = System.currentTimeMillis(); now = since; running = true }
+                    DialogButton(if (t.running) "Pausa" else if (elapsed > 0 && !finished) "Seguir" else "Empezar", true, Modifier.weight(1f)) {
+                        if (finished) t.reset()
+                        if (t.running) { t.acc += System.currentTimeMillis() - t.since; t.running = false }
+                        else { t.since = System.currentTimeMillis(); now = t.since; t.running = true }
                     }
-                    if (mode == 3 && running) {
-                        DialogButton("Vuelta", false, Modifier.weight(1f)) { laps.add(0, elapsed) }
+                    if (t.mode == 3 && t.running) {
+                        DialogButton("Vuelta", false, Modifier.weight(1f)) { t.laps.add(0, elapsed) }
                     } else {
-                        DialogButton("Reiniciar", false, Modifier.weight(1f)) { reset() }
+                        DialogButton("Reiniciar", false, Modifier.weight(1f)) { t.reset() }
                     }
                 }
             }
         }
-        if (mode == 3 && laps.isNotEmpty()) {
+        if (t.mode == 3 && t.laps.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    laps.forEachIndexed { i, l ->
-                        val prev = laps.getOrNull(i + 1) ?: 0L
+                    t.laps.forEachIndexed { i, l ->
+                        val prev = t.laps.getOrNull(i + 1) ?: 0L
                         Row {
-                            Text("Vuelta ${laps.size - i}", color = p.muted, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("Vuelta ${t.laps.size - i}", color = p.muted, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             Text("+" + fmtClock((l - prev) / 1000), color = p.muted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.width(14.dp))
                             Text(fmtClock(l / 1000), color = p.title, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
@@ -975,15 +1025,15 @@ private fun TimerTab(cfg: TrainCfg, onCfg: (TrainCfg) -> Unit) {
                 }
             }
         }
-        if (mode == 1 || mode == 2) {
+        if (t.mode == 1 || t.mode == 2) {
             Spacer(Modifier.height(12.dp))
             Glass(Modifier.fillMaxWidth().rise(1)) {
                 Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (mode == 2) {
-                        Stepper("Trabajo", work, 5..600, 5, Modifier.weight(1f)) { work = it; reset() }
-                        Stepper("Descanso", rest, 0..600, 5, Modifier.weight(1f)) { rest = it; reset() }
+                    if (t.mode == 2) {
+                        Stepper("Trabajo", t.work, 5..600, 5, Modifier.weight(1f)) { t.work = it; t.reset() }
+                        Stepper("Descanso", t.rest, 0..600, 5, Modifier.weight(1f)) { t.rest = it; t.reset() }
                     }
-                    Stepper("Rondas", rounds, 1..60, 1, Modifier.weight(1f)) { rounds = it; reset() }
+                    Stepper("Rondas", t.rounds, 1..60, 1, Modifier.weight(1f)) { t.rounds = it; t.reset() }
                 }
             }
         }

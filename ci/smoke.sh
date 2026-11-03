@@ -60,6 +60,8 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   back; tap "=Guardar" 2; look 06_finanzas_noche
   back; look 07_home_con_saldo
 
+  # los pasos de finanzas terminan con "atrás" y pueden dejar la app cerrada: se vuelve a abrir
+  timeout 60 adb shell am start -W -n $P/.MainActivity > /dev/null 2>&1; sleep 5
   tap "=Entreno" 3; look 40_entreno
   tap "=Ejercicios" 2; look 41_ejercicios
   type_in "Buscar ejercicio" "press"; look 41b_buscar; back

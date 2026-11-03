@@ -88,9 +88,7 @@ fun NioroApp(resumeTick: Int) {
     var cobros by remember { mutableStateOf(Store.loadCobros(ctx)) }
     var lists by remember { mutableStateOf(Store.loadLists(ctx)) }
     var history by remember { mutableStateOf(Store.loadHistory(ctx)) }
-    var trainHistory by remember { mutableStateOf(TrainStore.loadHistory(ctx)) }
     var trainActive by remember { mutableStateOf(TrainStore.loadActive(ctx)) }
-    var trainCfg by remember { mutableStateOf(TrainStore.loadCfg(ctx)) }
     var screen by remember { mutableStateOf("home") }
     // punto del dock desde donde crece la pantalla que se abre (y hacia donde se encoge al volver)
     var dockOrigin by remember { mutableStateOf(TransformOrigin(0.5f, 0.92f)) }
@@ -108,9 +106,7 @@ fun NioroApp(resumeTick: Int) {
     // al volver al inicio, refresca el resumen de entrenamiento
     LaunchedEffect(screen, resumeTick) {
         if (screen == "home") {
-            trainHistory = TrainStore.loadHistory(ctx)
             trainActive = TrainStore.loadActive(ctx)
-            trainCfg = TrainStore.loadCfg(ctx)
         }
     }
     LaunchedEffect(Unit) {
@@ -231,10 +227,6 @@ fun NioroApp(resumeTick: Int) {
                         ) { screen = "home" }
                         else -> HomeScreen(
                             settings, notes, tx, cobros, lists, now,
-                            TrainSummary(
-                                daysThisWeek(trainHistory, now), trainCfg.weeklyGoal,
-                                weekStreak(trainHistory, trainCfg.weeklyGoal, now), trainActive, trainHistory.size
-                            ),
                             onGo = { screen = it },
                             onMenu = { showSettings = true }
                         )

@@ -113,7 +113,8 @@ fun Glass(
 fun Modifier.rise(index: Int = 0): Modifier {
     val a = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(45L * index)
+        // tope al retraso: en listas largas los de abajo no deben quedar invisibles casi un segundo
+        kotlinx.coroutines.delay(45L * index.coerceIn(0, 6))
         a.animateTo(1f, spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessLow))
     }
     return this.graphicsLayer {
