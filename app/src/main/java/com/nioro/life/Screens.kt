@@ -204,82 +204,9 @@ fun HomeScreen(
             ) { onGo("notes") }
         }
 
-        Spacer(Modifier.height(14.dp))
-        Glass(Modifier.fillMaxWidth().rise(3), onClick = { onGo("train") }) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconBadge { DumbbellIcon() }
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    GlowText("Entrenamiento", 19.sp)
-                    val a = train.active
-                    Text(
-                        when {
-                            a != null -> "En curso: ${a.name} · ${fmtClock((now - a.start) / 1000)}"
-                            train.total == 0 -> "${EXERCISES.size} ejercicios · rutinas · temporizador"
-                            else -> "${train.daysWeek}/${train.goal} días esta semana" + (if (train.streak > 0) " · 🔥 ${train.streak}" else "")
-                        },
-                        color = if (a != null) p.income else p.muted,
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (train.total > 0 && train.active == null) {
-                    // mini barras de la semana
-                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
-                        repeat(train.goal.coerceIn(1, 7)) { i ->
-                            Box(
-                                Modifier.width(6.dp).height(20.dp).clip(RoundedCornerShape(3.dp))
-                                    .background(if (i < train.daysWeek) p.accent else p.track)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                }
-                ForwardIcon()
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-        Glass(Modifier.fillMaxWidth().rise(4), onClick = { onGo("finance") }) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconBadge { CoinIcon() }
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    GlowText("Finanzas", 19.sp)
-                    val porCobrar = cobros.filter { !it.settled }.sumOf { it.remaining }
-                    Text(
-                        "Saldo del mes: ${fmtMoney(sum.balance)}" +
-                            (if (porCobrar > 0) " · Por cobrar ${fmtMoney(porCobrar)}" else ""),
-                        color = if (sum.balance < 0) p.expense else p.muted,
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
-                    )
-                }
-                ForwardIcon()
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-        Glass(Modifier.fillMaxWidth().rise(5), onClick = { onGo("lists") }) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconBadge { CheckIcon() }
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    GlowText("Listas", 19.sp)
-                    val pendingItems = lists.sumOf { l -> l.items.count { !it.done } }
-                    Text(
-                        when {
-                            lists.isEmpty() -> "Compras, repuestos, deseos…"
-                            else -> "${lists.size} ${if (lists.size == 1) "lista" else "listas"} · $pendingItems por hacer"
-                        },
-                        color = p.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
-                    )
-                }
-                ForwardIcon()
-            }
-        }
-
         if (nextRem != null) {
             Spacer(Modifier.height(14.dp))
-            Glass(Modifier.fillMaxWidth().rise(6), radius = 24.dp) {
+            Glass(Modifier.fillMaxWidth().rise(3), radius = 24.dp) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(p.accent))
                     Spacer(Modifier.width(12.dp))
@@ -292,7 +219,8 @@ fun HomeScreen(
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
+        // espacio para que el dock flotante no tape el contenido
+        Spacer(Modifier.height(118.dp))
     }
 }
 
