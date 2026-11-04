@@ -115,7 +115,7 @@ fun NioroApp(resumeTick: Int) {
             delay(1000)
         }
     }
-    BackHandler(enabled = screen != "home" && screen != "train") { screen = "home" }
+    BackHandler(enabled = screen != "home" && screen != "train" && screen != "casa") { screen = "home" }
 
     val palette = paletteFor(settings.theme)
 
@@ -191,7 +191,7 @@ fun NioroApp(resumeTick: Int) {
                 AnimatedContent(
                     targetState = screen,
                     transitionSpec = {
-                        val dockScreens = setOf("train", "finance", "lists")
+                        val dockScreens = setOf("train", "finance", "lists", "casa")
                         val o = dockOrigin
                         val grow = spring<Float>(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)
                         val spec = spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)
@@ -220,6 +220,7 @@ fun NioroApp(resumeTick: Int) {
                         "notes" -> NotesScreen(notes, saveNote, deleteNote) { screen = "home" }
                         "finance" -> FinanceScreen(tx, cobros, saveTx, deleteTx, saveCobro, deleteCobro) { screen = "home" }
                         "train" -> TrainScreen { screen = "home" }
+                        "casa" -> CasaScreen { screen = "home" }
                         "lists" -> ListsScreen(
                             lists, history,
                             onHistory = { h -> history = h; Store.saveHistory(ctx, h) },
@@ -250,6 +251,7 @@ fun NioroApp(resumeTick: Int) {
                                 "finance", "Finanzas", { CoinIcon() },
                                 badge = if (balance < 0) "!" else null, badgeColor = palette.expense
                             ),
+                            DockItem("casa", "Casa", { BulbIcon() }),
                             DockItem(
                                 "lists", "Listas", { CheckIcon() },
                                 badge = if (pendingItems > 0) (if (pendingItems > 99) "99+" else "$pendingItems") else null

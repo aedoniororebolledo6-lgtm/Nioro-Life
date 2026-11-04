@@ -73,6 +73,13 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   back; back; look 46_home_tras_entreno
 
   timeout 60 adb shell am start -W -n $P/.MainActivity > /dev/null 2>&1; sleep 5
+  tap "=Casa" 3; look 50_casa
+  tap "+ Añadir ampolleta" 2; look 51_anadir
+  tap "Por IP" 1; type_in "IP, ej" "192.168.1.77"; back; tap "=Añadir" 2; look 52_casa_con_ampolleta
+  tap "Ampolleta 77" 3; look 53_detalle
+  back; tap "Cómo liberar" 2; look 54_guia; back
+
+  timeout 60 adb shell am start -W -n $P/.MainActivity > /dev/null 2>&1; sleep 5
   tap "Men" 3; look 08_menu_noche
   tap "=Día"; look 09_menu_dia
   tap "Buscar actualiz" 9; look 10_actualizacion
