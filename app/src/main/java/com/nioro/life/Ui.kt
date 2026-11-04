@@ -410,6 +410,26 @@ fun CloseIcon(dp: Dp = 14.dp, color: Color = LocalPalette.current.muted) {
     }
 }
 
+/** Ampolleta para la sección Casa. */
+@Composable
+fun BulbIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {
+    Canvas(Modifier.size(dp)) {
+        val w = size.minDimension
+        val sw = w * 0.075f
+        val bulb = Path().apply {
+            moveTo(w * 0.38f, w * 0.68f)
+            cubicTo(w * 0.38f, w * 0.56f, w * 0.2f, w * 0.5f, w * 0.2f, w * 0.36f)
+            cubicTo(w * 0.2f, w * 0.18f, w * 0.34f, w * 0.08f, w * 0.5f, w * 0.08f)
+            cubicTo(w * 0.66f, w * 0.08f, w * 0.8f, w * 0.18f, w * 0.8f, w * 0.36f)
+            cubicTo(w * 0.8f, w * 0.5f, w * 0.62f, w * 0.56f, w * 0.62f, w * 0.68f)
+            close()
+        }
+        drawPath(bulb, color, style = Stroke(sw, cap = StrokeCap.Round))
+        drawLine(color, Offset(w * 0.4f, w * 0.79f), Offset(w * 0.6f, w * 0.79f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.43f, w * 0.9f), Offset(w * 0.57f, w * 0.9f), sw, StrokeCap.Round)
+    }
+}
+
 /** Pesa (mancuerna) para la sección de entrenamiento. */
 @Composable
 fun DumbbellIcon(dp: Dp = 30.dp, color: Color = LocalPalette.current.title) {

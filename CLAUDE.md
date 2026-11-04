@@ -45,6 +45,9 @@ El usuario quiere que **las actualizaciones le lleguen solas** a la app. El fluj
 - `Dock.kt` — dock flotante (Entreno, Finanzas, Listas). `Theme.kt` / `Ambient.kt` — temas y fondos animados.
 - `Training.kt` (pestañas, biblioteca, rutinas, timer, progreso), `ActiveWorkout.kt` (entrenamiento en curso,
   descanso, `Buzz`), `Workout.kt` (datos, cálculos, `TrainStore`), `ExerciseCatalog.kt` (ejercicios y rutinas).
+- `Casa.kt` (ampolletas Wi-Fi: lista, detalle, rueda de color, escenas, añadir, guía) y `SmartHome.kt`
+  (red: comandos HTTP Tasmota/OpenBeken `/cm?cmnd=`, búsqueda en la red, Wi-Fi de ampolleta nueva).
+  Las ampolletas Tuya se liberan con firmware OpenBeken/Tasmota; la app no usa Smart Life ni la nube.
 - `Finance.kt`, `FinanceAI.kt`, `Export.kt`, `Lists.kt`, `Alarms.kt`, `Updater.kt`, `Data.kt` (`Store`).
 
 ## Pendiente conocido

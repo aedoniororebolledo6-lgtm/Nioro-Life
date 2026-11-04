@@ -11,6 +11,9 @@ App 100 % nativa: sin web, sin WebView. Funciona sin internet.
   temporizador de descanso automático con pitido y vibración. Temporizador Tabata / EMOM / HIIT y
   cronómetro, calculadoras de 1RM y de discos, meta semanal con racha, récords personales,
   volumen por semana, músculos trabajados, peso corporal e historial.
+- **Casa:** controla ampolletas Wi-Fi con firmware libre (OpenBeken o Tasmota) por tu red, sin Smart Life:
+  encender/apagar, brillo, rueda de color, blanco cálido/frío y escenas. Las busca en tu Wi-Fi, les envía
+  tu Wi-Fi cuando son nuevas e incluye una guía para liberar las ampolletas de Tuya.
 - **Alarmas del sistema (AlarmManager):** suenan con la app cerrada y el teléfono bloqueado, y se reprograman tras reiniciar.
 
 ## Descargar el APK
