@@ -78,6 +78,7 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   tap "Por IP" 1; type_in "IP, ej" "192.168.1.77"; back; tap "=Añadir" 2; look 52_casa_con_ampolleta
   tap "Ampolleta 77" 3; look 53_detalle
   back; tap "Cómo liberar" 2; look 54_guia; back
+  tap "Enlazar con Smart Life" 2; look 55_enlazar_smartlife; back
 
   timeout 60 adb shell am start -W -n $P/.MainActivity > /dev/null 2>&1; sleep 5
   tap "Men" 3; look 08_menu_noche

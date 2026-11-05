@@ -41,7 +41,9 @@ data class BulbState(
     /** Temperatura de blanco en mired (153 = frío 6500 K, 500 = cálido 2000 K). */
     val ct: Int = 300,
     /** true = modo blanco, false = modo color */
-    val white: Boolean = true
+    val white: Boolean = true,
+    /** true = está corriendo un efecto/escena animada */
+    val scene: Boolean = false
 )
 
 /** Una escena: modo blanco (ct) o color (hue/sat), con brillo. */
