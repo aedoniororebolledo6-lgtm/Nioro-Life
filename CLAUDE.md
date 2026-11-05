@@ -47,7 +47,10 @@ El usuario quiere que **las actualizaciones le lleguen solas** a la app. El fluj
   descanso, `Buzz`), `Workout.kt` (datos, cálculos, `TrainStore`), `ExerciseCatalog.kt` (ejercicios y rutinas).
 - `Casa.kt` (ampolletas Wi-Fi: lista, detalle, rueda de color, escenas, añadir, guía) y `SmartHome.kt`
   (red: comandos HTTP Tasmota/OpenBeken `/cm?cmnd=`, búsqueda en la red, Wi-Fi de ampolleta nueva).
-  Las ampolletas Tuya se liberan con firmware OpenBeken/Tasmota; la app no usa Smart Life ni la nube.
+  `TuyaCloud.kt`: puente con Smart Life por la API oficial de Tuya (proyecto gratuito en iot.tuya.com enlazado
+  a la cuenta de Smart Life con un QR; Access ID + Secret, firma HMAC-SHA256). Traduce `LightCmd` a códigos
+  Tuya (`switch_led`, `work_mode`, `bright_value_v2`, `temp_value_v2`, `colour_data_v2`, `scene_data_v2`,
+  `countdown_1`). Efectos animados (`LIGHT_EFFECTS` + propios) y apagado programado solo en equipos Smart Life.
 - `Finance.kt`, `FinanceAI.kt`, `Export.kt`, `Lists.kt`, `Alarms.kt`, `Updater.kt`, `Data.kt` (`Store`).
 
 ## Pendiente conocido
