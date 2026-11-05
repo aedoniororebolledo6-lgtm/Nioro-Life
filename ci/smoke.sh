@@ -79,6 +79,7 @@ back() { timeout 20 adb shell input keyevent 4; sleep 2; }
   tap "Ampolleta 77" 3; look 53_detalle
   back; tap "Cómo liberar" 2; look 54_guia; back
   tap "Enlazar con Smart Life" 2; look 55_enlazar_smartlife; back
+  back  # vuelve de Casa al inicio para los pasos del menú
 
   timeout 60 adb shell am start -W -n $P/.MainActivity > /dev/null 2>&1; sleep 5
   tap "Men" 3; look 08_menu_noche
